@@ -120,7 +120,7 @@ const UserProfileDropdown = ({ unreadCount, onCountChange }) => {
   const handleLogout = async () => {
     localStorage.removeItem("userInfo");
     setUser(null);
-    try { await axios.get("/auth/logout"); window.location.href = "http://localhost:5173/login"; }
+    try { await axios.get("/auth/logout");window.location.href = "https://skill-swap-five-chi.vercel.app/login";}
     catch {}
   };
 

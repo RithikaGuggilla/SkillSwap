@@ -57,7 +57,7 @@ export const sendReminderEmail = async ({ toEmail, toName, otherName, sessionTim
               </div>
 
               <!-- CTA Button -->
-              <a href="http://localhost:5173/dashboard" 
+              <a href="https://skill-swap-five-chi.vercel.app/dashboard">
                 style="display:block;text-align:center;background:#0a0a0a;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;font-size:0.88rem;font-weight:600;letter-spacing:0.04em;">
                 Open SkillSwap →
               </a>

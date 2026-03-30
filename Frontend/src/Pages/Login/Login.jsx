@@ -62,7 +62,7 @@ const Login = () => {
         setError(data.message || "Something went wrong. Please try again.");
       } else {
         window.location.href =
-          data.data?.redirect || "http://localhost:5173/discover";
+          data.data?.redirect || "https://skill-swap-five-chi.vercel.app/discover";
       }
     } catch {
       setError("Network error. Please check your connection and try again.");

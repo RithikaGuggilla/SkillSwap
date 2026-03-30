@@ -14,13 +14,14 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import bcrypt from "bcryptjs";
 
 dotenv.config();
+const FRONTEND_URL = "https://skill-swap-five-chi.vercel.app";
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/auth/google/callback",
+      callbackURL: process.env.GOOGLE_CALLBACK_URL,
     },
     async (accessToken, refreshToken, profile, done) => {
       done(null, profile);
@@ -41,7 +42,7 @@ export const googleAuthHandler = (req, res, next) => {
 };
 
 export const googleAuthCallback = passport.authenticate("google", {
-  failureRedirect: "http://localhost:5173/login",
+  failureRedirect: `${FRONTEND_URL}/login`,
   session: false,
 });
 
@@ -53,7 +54,7 @@ export const handleGoogleLoginCallback = asyncHandler(async (req, res) => {
   if (existingUser) {
     // ── Check if banned ──
     if (existingUser.isBanned) {
-      return res.redirect("http://localhost:5173/banned");
+      return res.redirect(`${FRONTEND_URL}/banned`);
     }
 
     const jwtToken = generateJWTToken_username(existingUser);
@@ -61,7 +62,7 @@ export const handleGoogleLoginCallback = asyncHandler(async (req, res) => {
     res.cookie("accessToken", jwtToken, {
       httpOnly: true, secure: false, sameSite: "lax", expires: expiryDate
     });
-    return res.redirect("http://localhost:5173/discover");
+    return res.redirect(`${FRONTEND_URL}/discover`);
   }
 
   let unregisteredUser = await UnRegisteredUser.findOne({ email: req.user._json.email });
@@ -83,7 +84,7 @@ export const handleGoogleLoginCallback = asyncHandler(async (req, res) => {
   res.cookie("accessTokenRegistration", jwtToken, {
     httpOnly: true, secure: false, sameSite: "lax", expires: expiryDate
   });
-  return res.redirect("http://localhost:5173/register");
+  return res.redirect(`${FRONTEND_URL}/register`);
 });
 
 export const handleLogout = (req, res) => {
@@ -180,7 +181,7 @@ export const emailLogin = asyncHandler(async (req, res) => {
   });
  
   return res.status(200).json(
-    new ApiResponse(200, { redirect: "http://localhost:5173/discover" }, "Login successful.")
+   new ApiResponse(200, { redirect: `${FRONTEND_URL}/discover` }, "Login successful.")
   );
 });
  
