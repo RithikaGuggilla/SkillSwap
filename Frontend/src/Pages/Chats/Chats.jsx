@@ -830,7 +830,7 @@ const Chats = () => {
     try {
       setChatLoading(true);
       const { data } = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/chat/getChats`,
+        `${import.meta.env.VITE_SERVER_URL}/chat`,
         { withCredentials: true }
       );
 
