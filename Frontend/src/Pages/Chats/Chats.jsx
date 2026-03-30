@@ -59,7 +59,9 @@ const Chats = () => {
 
   // Fetch groups
   useEffect(() => {
-    axios.get("/group/my-groups", { withCredentials: true })
+    axios.get(`${import.meta.env.VITE_SERVER_URL}/group/my-groups`, {
+  withCredentials: true,
+})
       .then(({ data }) => setGroups(data.data || []))
       .catch(() => {});
   }, []);
@@ -141,7 +143,10 @@ const Chats = () => {
     try {
       setChatLoading(true);
       const tempUser = JSON.parse(localStorage.getItem("userInfo"));
-      const { data } = await axios.get(import.meta.env.VITE_SERVER_URL);
+      const { data } = await axios.get(
+  `${import.meta.env.VITE_SERVER_URL}/chat/getChats`,
+  { withCredentials: true }
+);
       toast.success(data.message);
       if (tempUser?._id) {
         const temp = data.data.map((chat) => {
