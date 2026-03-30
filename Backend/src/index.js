@@ -24,18 +24,13 @@ connectDB()
     });
 
     const io = new Server(server, {
-      pingTimeout: 60000,
-      cors: {
-        origin: [
-          "http://localhost:5173",
-          "http://127.0.0.1:5173",
-          "https://skill-swap-five-chi.vercel.app"
-        ],
-        methods: ["GET", "POST"],
-        credentials: true
-      }
-    });
-
+  pingTimeout: 60000,
+  cors: {
+    origin: "https://skill-swap-five-chi.vercel.app", // ✅ SINGLE STRING
+    methods: ["GET", "POST"],
+    credentials: true,
+  }
+});
     io.on("connection", (socket) => {
       console.log("🔌 Connected:", socket.id);
 

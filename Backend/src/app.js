@@ -8,10 +8,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
+    origin: 
+      
       "https://skill-swap-five-chi.vercel.app"
-    ],
+    ,
     credentials: true,
   })
 );

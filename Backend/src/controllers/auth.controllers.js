@@ -177,6 +177,7 @@ export const emailLogin = asyncHandler(async (req, res) => {
     httpOnly: true,
       secure: true,        // ✅ change
   sameSite: "none", 
+  path: "/",           // ✅ ensure cookie is sent on all routes
     expires: expiryDate,
   });
  
