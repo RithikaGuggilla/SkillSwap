@@ -8,11 +8,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: 
-      
-      "https://skill-swap-five-chi.vercel.app"
-    ,
+    origin:  "https://skill-swap-five-chi.vercel.app",
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 

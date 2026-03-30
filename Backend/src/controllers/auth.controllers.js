@@ -60,7 +60,9 @@ export const handleGoogleLoginCallback = asyncHandler(async (req, res) => {
     const jwtToken = generateJWTToken_username(existingUser);
     const expiryDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     res.cookie("accessToken", jwtToken, {
-      httpOnly: true, secure: false, sameSite: "lax", expires: expiryDate
+      httpOnly: true, secure: true,
+  sameSite: "none",
+  path: "/", expires: expiryDate
     });
     return res.redirect(`${FRONTEND_URL}/discover`);
   }
@@ -82,14 +84,20 @@ export const handleGoogleLoginCallback = asyncHandler(async (req, res) => {
   res.clearCookie("accessToken");
 
   res.cookie("accessTokenRegistration", jwtToken, {
-    httpOnly: true, secure: false, sameSite: "lax", expires: expiryDate
+    httpOnly: true, secure: true,
+  sameSite: "none",
+  path: "/", expires: expiryDate
   });
   return res.redirect(`${FRONTEND_URL}/register`);
 });
 
 export const handleLogout = (req, res) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("accessTokenRegistration");
+  res.clearCookie("accessToken", {
+  httpOnly: true, secure: true, sameSite: "none", path: "/"
+});
+res.clearCookie("accessTokenRegistration", {
+  httpOnly: true, secure: true, sameSite: "none", path: "/"
+});
   return res.status(200).json(new ApiResponse(200, null, "User logged out successfully"));
 };
 
