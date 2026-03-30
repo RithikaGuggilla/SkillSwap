@@ -46,7 +46,7 @@ const Settings = () => {
 
       // ── Redirect to Google with fresh=true so account picker shows ──
       // This prevents auto-login back into registration
-      window.location.href = "http://localhost:8000/auth/google?fresh=true";
+      window.location.href = `${import.meta.env.VITE_SERVER_URL}/auth/google?fresh=true`;
 
     } catch (error) {
       console.log(error);

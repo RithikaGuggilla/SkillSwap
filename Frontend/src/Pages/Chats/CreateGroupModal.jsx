@@ -11,7 +11,7 @@ const CreateGroupModal = ({ onClose, onCreated }) => {
 
   useEffect(() => {
     // Use existing chats to get contacts — same endpoint as Chats.jsx
-    axios.get("http://localhost:8000/chat", { withCredentials: true })
+    axios.get(`${import.meta.env.VITE_SERVER_URL}/chat`, { withCredentials: true })
       .then(({ data }) => {
         const tempUser = JSON.parse(localStorage.getItem("userInfo"));
         if (!tempUser?._id) return;

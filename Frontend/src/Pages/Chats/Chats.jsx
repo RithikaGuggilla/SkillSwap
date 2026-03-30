@@ -72,7 +72,7 @@ const Chats = () => {
 
   // ── Socket setup — runs ONCE on mount ──
   useEffect(() => {
-    socket = io("http://localhost:8000", {
+    socket = io(import.meta.env.VITE_SERVER_URL, {
       transports: ["websocket"],
       withCredentials: true,
     });
@@ -141,7 +141,7 @@ const Chats = () => {
     try {
       setChatLoading(true);
       const tempUser = JSON.parse(localStorage.getItem("userInfo"));
-      const { data } = await axios.get("http://localhost:8000/chat");
+      const { data } = await axios.get(import.meta.env.VITE_SERVER_URL);
       toast.success(data.message);
       if (tempUser?._id) {
         const temp = data.data.map((chat) => {
@@ -180,7 +180,7 @@ const Chats = () => {
     setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
     try {
       setChatMessageLoading(true);
-      const { data } = await axios.get(`http://localhost:8000/message/getMessages/${chatId}`);
+      const { data } = await axios.get(`${import.meta.env.VITE_SERVER_URL}/message/getMessages/${chatId}`);
       setChatMessages(data.data);
       setMessage("");
       const chat = chats.find((c) => c.id === chatId);
@@ -592,7 +592,7 @@ const Chats = () => {
               <button className="ch-btn ch-btn--decline" onClick={() => setShowSchedule(false)}>Cancel</button>
               <button className="ch-btn ch-btn--accept" onClick={async () => {
                 try {
-                  await axios.post("http://localhost:8000/meeting/schedule", {
+                  await axios.post(`${import.meta.env.VITE_SERVER_URL}/meeting/schedule`, {
                     participantId: selectedChat.userId, date: scheduleDate, time: scheduleTime,
                   }, { withCredentials: true });
                   toast.success("Session scheduled successfully");

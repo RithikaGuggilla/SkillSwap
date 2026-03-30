@@ -6,7 +6,7 @@ const ApiCall = async (url, method, navigate, setUser, data) => {
   try {
     const config = {
       method,
-      url: `http://localhost:8000${url}`,
+      url: `${import.meta.env.VITE_SERVER_URL}${url}`,
       data,
       withCredentials: true
     };

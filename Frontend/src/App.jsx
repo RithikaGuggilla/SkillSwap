@@ -51,7 +51,7 @@ const App = () => {
 
   useEffect(() => {
     if (!user) return;
-    const globalSocket = io("http://localhost:8000", {
+    const globalSocket = io("https://skillswap-backend-9d4w.onrender.com", {
       transports: ["websocket"],
       withCredentials: true,
     });

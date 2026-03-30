@@ -12,7 +12,7 @@ const Login = () => {
   const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:8000/auth/google";
+    window.location.href = `${import.meta.env.VITE_SERVER_URL}/auth/google`;
   };
 
   const validateEmail = (email) => {
@@ -51,7 +51,7 @@ const Login = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/email/login", {
+      const res = await fetch(`${import.meta.env.VITE_SERVER_URL}/auth/email/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

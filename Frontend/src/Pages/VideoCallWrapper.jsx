@@ -18,7 +18,7 @@ const VideoCallWrapper = () => {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    const newSocket = io("http://localhost:8000");
+    const newSocket = io(import.meta.env.VITE_SERVER_URL);
     setSocket(newSocket);
     return () => newSocket.disconnect();
   }, []);
