@@ -17,6 +17,12 @@ const messageSchema = new Schema(
       trim: true,
       required: true,
     },
+    readBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );

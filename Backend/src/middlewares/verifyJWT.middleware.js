@@ -10,16 +10,21 @@ const verifyJWT_email = asyncHandler(async (req, res, next) => {
   try {
     console.log("\n******** Inside verifyJWT_email Function ********");
 
-    const token = req.cookies?.accessTokenRegistration || req.header("Authorization")?.replace("Bearer ", "");
+    const token =
+    req.cookies?.accessTokenRegistration ||
+    req.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
     if (!token) {
       console.log("token not found");
       throw new ApiError(401, "Please Login");
+      
     }
-
+ console.log("Cookies:", req.cookies);
+console.log("Authorization Header:", req.headers.authorization);
     // console.log("Token Found : ", token);
 
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    // console.log("Decoded Token is : ", decodedToken);
+     console.log("Decoded Token is : ", decodedToken);
     const user = await UnRegisteredUser.findOne({ email: decodedToken?.email }).select(
       "-_id -__v -createdAt -updatedAt"
     );
@@ -40,27 +45,45 @@ const verifyJWT_email = asyncHandler(async (req, res, next) => {
   }
 });
 
+
+
+
+
 const verifyJWT_username = asyncHandler(async (req, res, next) => {
   try {
     console.log("\n******** Inside verifyJWT_username Function ********");
 
-    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+    const token =
+      req.cookies.accessToken ||
+      req.cookies?.accessTokenRegistration ||
+      req.header("Authorization")?.replace("Bearer ", "");
+
     if (!token) {
       console.log("token not found");
       throw new ApiError(401, "Please Login");
     }
 
-    // console.log("Token Found : ", token);
-
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    // console.log("Decoded Token is : ", decodedToken);
-    const user = await User.findOne({ username: decodedToken?.username }).select("-__v -createdAt -updatedAt");
+    console.log("Decoded Token is :", decodedToken);
+
+    // First check registered users
+    let user = await User.findById(decodedToken?.id).select(
+      "-__v -createdAt -updatedAt"
+    );
+
+    // If not found, check unregistered users
+    if (!user) {
+      user = await UnRegisteredUser.findOne({
+        email: decodedToken?.email,
+      });
+    }
+
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
     }
-    // console.log(user);
-    req.user = user;
-    next();
+
+    req.user = user;   // attach user to request
+    next();            // move to next middleware
   } catch (error) {
     if (error.name === "TokenExpiredError") {
       console.log("Token Expired");
@@ -71,5 +94,4 @@ const verifyJWT_username = asyncHandler(async (req, res, next) => {
     }
   }
 });
-
-export { verifyJWT_email, verifyJWT_username };
+export { verifyJWT_email, verifyJWT_username };  

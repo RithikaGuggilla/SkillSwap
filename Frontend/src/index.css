@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Montserrat:ital@0;1&family=Oswald:wght@200&display=swap");
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Syne:wght@400;500;600;700&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -8,29 +10,38 @@
 html,
 body {
   height: 100%;
-  background-color: #2d2d2d;
+  background-color: #000000;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 :root {
-  --cyan: #3bb4a1;
+  --primary: #6C5DD3;
+  --primary-dark: #4B3C74;
   --light-grey: #6d6e70;
   --grey: #2d2d2d;
   --yellow: #fbf1a4;
   --dark-cyan: #013e38;
   --red: #f56664;
-  --basefont: "Oswald", sans-serif;
-  --secfont: "Montserrat", sans-serif;
+
+  --basefont: 'Cormorant Garamond', serif;
+  --secfont: 'Syne', sans-serif;
 }
 
 body {
-  font-family: var(--basefont);
-  background-color: var(--grey);
-  color: white;
-  text-align: center;
+  font-family: var(--secfont);
 }
+
+h1, h2, h3, h4 {
+  font-family: var(--basefont);
+   letter-spacing: -0.02em;
+}
+
 ::-webkit-scrollbar-track {
   border: 5px solid #00211e;
-  background-color: #00211e;
+  background-color: #EAEAF2;
 }
 
 ::-webkit-scrollbar {
@@ -39,12 +50,52 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--cyan);
-  border-radius: 10px;
+  background-color: var(--primary);
+}
+.dropdown-item {
+  color: #ffffff !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus,
+.dropdown-item.active {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
 }
 
 ::-webkit-scrollbar:horizontal {
   height: 0;
   width: 0;
   display: none;
+}
+
+
+.global-call-popup {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 9999;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  animation: slideUp 0.3s ease;
+  min-width: 240px;
+  text-align: center;
+}
+.global-call-accept {
+  background: #34a853; border: none; color: #fff;
+  border-radius: 8px; padding: 9px 20px;
+  cursor: pointer; font-weight: 600; font-family: 'Syne', sans-serif;
+}
+.global-call-decline {
+  background: #ea4335; border: none; color: #fff;
+  border-radius: 8px; padding: 9px 20px;
+  cursor: pointer; font-family: 'Syne', sans-serif;
+}
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }

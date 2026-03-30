@@ -1,40 +1,211 @@
-.box {
-  background-color: white;
-  color: #013e38;
-  padding: 10px;
-  margin-bottom: 2rem;
-  border-radius: 5px;
-  box-shadow: 3px 3px 5px #5c9c94;
-  width: 100%;
+
+
+:root {
+  --bx-bg:      #111110;
+  --bx-bg-2:    #161615;
+  --bx-border:  rgba(255,255,255,0.07);
+  --bx-border-h:rgba(255,255,255,0.20);
+  --bx-text-1:  #ffffff;
+  --bx-text-2:  #c4c4c2;
+  --bx-text-3:  #888886;
+  --bx-text-4:  #555553;
+  --bx-ff-d:    'Cormorant Garamond', Georgia, serif;
+  --bx-ff-b:    'Syne', sans-serif;
 }
 
-.desc {
-  margin: 0.6rem;
-  margin-top: 1.5rem;
-  font-size: 1rem;
-}
-
-.details {
-  margin: 0.6rem;
+/* ═══════ CARD ═══════ */
+.bx {
+  background: var(--bx-bg-2);
+  border: 1px solid var(--bx-border);
+  border-radius: 12px;
+  padding: 22px 26px;
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--bx-ff-b);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.22s, box-shadow 0.22s;
+}
+
+.bx::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 14px; bottom: 14px;
+  width: 2px;
+  background: var(--bx-text-1);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.22s;
+}
+
+.bx:hover {
+  border-color: var(--bx-border-h);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+}
+.bx:hover::before { opacity: 1; }
+
+/* ═══════ TOP ROW ═══════ */
+.bx-top {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-top: 1rem;
-  font-size: 1rem !important;
-  color: grey;
-}
-
-.boxskill-boxes {
-  margin: 1rem;
-  display: flex;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
-.skill-box {
-  text-align: center;
-  background-color: #809c5c;
-  color: white;
-  margin-right: 1rem;
-  border-radius: 5px;
-  min-width: 4rem;
-  font-size: 12px;
+.bx-top-left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bx-head {
+  font-family: var(--bx-ff-d);
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--bx-text-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.bx-spec {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--bx-text-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bx-date {
+  font-size: 0.67rem;
+  color: var(--bx-text-4);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bx-border);
+  border-radius: 100px;
+  padding: 4px 12px;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* ═══════ DESCRIPTION ═══════ */
+.bx-desc {
+  font-size: 0.86rem;
+  line-height: 1.78;
+  color: var(--bx-text-2);
+  margin: 0;
+  max-width: 72ch;
+}
+
+/* ═══════ LINKS ROW (github / live) ═══════ */
+.bx-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bx-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bx-text-2);
+  border: 1px solid var(--bx-border-h);
+  border-radius: 8px;
+  padding: 5px 14px;
+  text-decoration: none;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+
+.bx-link:hover {
+  border-color: var(--bx-text-1);
+  color: var(--bx-text-1);
+  background: rgba(255,255,255,0.05);
+}
+
+.bx-link svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* ═══════ SKILLS FOOTER ═══════ */
+.bx-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--bx-border);
+}
+
+.bx-footer-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--bx-text-4);
+  flex-shrink: 0;
+}
+
+.bx-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bx-skill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: var(--bx-text-2);
+  padding: 3px 11px;
+  border-radius: 100px;
+  letter-spacing: 0.03em;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+.bx-skill:hover {
+  background: rgba(255,255,255,0.11);
+  border-color: rgba(255,255,255,0.28);
+  color: var(--bx-text-1);
+}
+
+/* ═══════ SCORE ═══════ */
+.bx-score {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bx-border);
+}
+
+.bx-score-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--bx-text-4);
+}
+
+.bx-score-val {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--bx-text-1);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 3px 12px;
+}
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 600px) {
+  .bx { padding: 18px 18px; }
+  .bx-top { flex-direction: column; }
+  .bx-date { align-self: flex-start; }
 }

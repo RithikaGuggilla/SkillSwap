@@ -1,175 +1,237 @@
-import React, { useEffect, useState } from "react";
-import Button from "react-bootstrap/Button";
-import ListGroup from "react-bootstrap/ListGroup";
-import Form from "react-bootstrap/Form";
+
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useUser } from "../../util/UserContext";
 import Spinner from "react-bootstrap/Spinner";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import io from "socket.io-client";
 import ScrollableFeed from "react-scrollable-feed";
 import RequestCard from "./RequestCard";
 import "./Chats.css";
-import Modal from "react-bootstrap/Modal";
+import { Link } from "react-router-dom";
+import { FaVideo } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
+import CreateGroupModal from "./CreateGroupModal";
+import GroupChatView from "./GroupChatView";
 
 var socket;
+
 const Chats = () => {
-  const [showChatHistory, setShowChatHistory] = useState(true);
-  const [showRequests, setShowRequests] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [requestLoading, setRequestLoading] = useState(false);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const defaultTab = params.get("tab") || "chats";
+
+  const [activeTab, setActiveTab]                       = useState(defaultTab);
+  const [requests, setRequests]                         = useState([]);
+  const [requestLoading, setRequestLoading]             = useState(false);
   const [acceptRequestLoading, setAcceptRequestLoading] = useState(false);
+  const [requestModalShow, setRequestModalShow]         = useState(false);
+  const [selectedChat, setSelectedChat]                 = useState(null);
+  const [chatMessages, setChatMessages]                 = useState([]);
+  const [chats, setChats]                               = useState([]);
+  const [chatLoading, setChatLoading]                   = useState(true);
+  const [chatMessageLoading, setChatMessageLoading]     = useState(false);
+  const [message, setMessage]                           = useState("");
+  const [selectedRequest, setSelectedRequest]           = useState(null);
+  const [incomingCall, setIncomingCall]                 = useState(null);
+  const [showSchedule, setShowSchedule]                 = useState(false);
+  const [scheduleDate, setScheduleDate]                 = useState("");
+  const [scheduleTime, setScheduleTime]                 = useState("");
 
-  const [scheduleModalShow, setScheduleModalShow] = useState(false);
-  const [requestModalShow, setRequestModalShow] = useState(false);
+  // ── Group state ──
+  const [groups, setGroups]                   = useState([]);
+  const [activeGroup, setActiveGroup]         = useState(null);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-  // to store selected chat
-  const [selectedChat, setSelectedChat] = useState(null);
-  // to store chat messages
-  const [chatMessages, setChatMessages] = useState([]);
-  // to store chats
-  const [chats, setChats] = useState([]);
-  const [chatLoading, setChatLoading] = useState(true);
-  const [chatMessageLoading, setChatMessageLoading] = useState(false);
-  // to store message
-  const [message, setMessage] = useState("");
+  // ── Unread + last messages ──
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const [groupUnread, setGroupUnread]   = useState({});
+  const [lastMessages, setLastMessages] = useState({}); // { chatId: "last msg text" }
 
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  // keep selectedChat in a ref so socket handlers can read current value
+  const selectedChatRef = useRef(null);
+  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
 
   const { user, setUser } = useUser();
-
   const navigate = useNavigate();
+  const ME_ID = user?._id || "me";
 
-  const [scheduleForm, setScheduleForm] = useState({
-    date: "",
-    time: "",
-  });
-
+  // Fetch groups
   useEffect(() => {
-    fetchChats();
+    axios.get("/group/my-groups", { withCredentials: true })
+      .then(({ data }) => setGroups(data.data || []))
+      .catch(() => {});
   }, []);
 
+  useEffect(() => { fetchChats(); }, []);
+
   useEffect(() => {
-    socket = io(axios.defaults.baseURL);
-    if (user) {
-      socket.emit("setup", user);
-    }
-    socket.on("message recieved", (newMessageRecieved) => {
-      console.log("New Message Recieved: ", newMessageRecieved);
-      console.log("Selected Chat: ", selectedChat);
-      console.log("Selected Chat ID: ", selectedChat.id);
-      console.log("New Message Chat ID: ", newMessageRecieved.chatId._id);
-      if (selectedChat && selectedChat.id === newMessageRecieved.chatId._id) {
-        setChatMessages((prevState) => [...prevState, newMessageRecieved]);
+    if (defaultTab === "requests") getRequests();
+  }, []);
+
+  // ── Socket setup — runs ONCE on mount ──
+  useEffect(() => {
+    socket = io("http://localhost:8000", {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
+    if (user) socket.emit("setup", user);
+
+    // New message received
+    socket.on("message recieved", (msg) => {
+      const currentChat = selectedChatRef.current;
+      const chatId = msg.chatId?._id || msg.chatId;
+
+      // Update last message preview always
+      setLastMessages(prev => ({
+        ...prev,
+        [chatId]: msg.content,
+      }));
+
+      if (currentChat && currentChat.id === chatId) {
+        // Currently viewing this chat — add to messages
+        setChatMessages((prev) => [...prev, msg]);
+      } else {
+        // Not viewing — increment unread badge
+        setUnreadCounts(prev => ({
+          ...prev,
+          [chatId]: (prev[chatId] || 0) + 1,
+        }));
       }
     });
+
+    // Group message unread
+    socket.on("group-message", ({ groupId }) => {
+      setGroupUnread(prev => ({
+        ...prev,
+        [groupId]: (prev[groupId] || 0) + 1,
+      }));
+    });
+
+    // ── INCOMING CALL — works globally regardless of which page ──
+    socket.on("incoming-call", (data) => {
+      console.log("📞 Incoming call from:", data.name);
+      setIncomingCall(data);
+    });
+
+    // Also listen for call-invite (some implementations use this)
+    socket.on("call-invite", (data) => {
+      console.log("📞 Call invite from:", data.from);
+      setIncomingCall({
+        name: data.fromName || data.from,
+        roomId: [data.from, user?._id].sort().join("_"),
+        from: data.from,
+      });
+    });
+
+    socket.on("video-offer", async ({ offer }) => {
+      console.log("Received offer", offer);
+    });
+
     return () => {
       socket.off("message recieved");
+      socket.off("incoming-call");
+      socket.off("call-invite");
+      socket.off("group-message");
     };
-  }, [selectedChat]);
+  }, [user]);
 
   const fetchChats = async () => {
     try {
       setChatLoading(true);
       const tempUser = JSON.parse(localStorage.getItem("userInfo"));
       const { data } = await axios.get("http://localhost:8000/chat");
-      // console.log("Chats", data.data);
       toast.success(data.message);
       if (tempUser?._id) {
         const temp = data.data.map((chat) => {
+          const otherUser = chat.users.find((u) => u._id !== tempUser._id);
           return {
-            id: chat._id,
-            name: chat?.users.find((u) => u?._id !== tempUser?._id).name,
-            picture: chat?.users.find((u) => u?._id !== tempUser?._id).picture,
-            username: chat?.users.find((u) => u?._id !== tempUser?._id).username,
+            id: chat._id, userId: otherUser._id, name: otherUser.name,
+            picture: otherUser.picture, username: otherUser.username,
+            lastMessage: chat.latestMessage?.content || "",
+            unreadCount: chat.unreadCount || 0,
           };
         });
         setChats(temp);
+        // Init last messages from API data
+        const initLast = {};
+        const initUnread = {};
+        temp.forEach(c => {
+          if (c.lastMessage) initLast[c.id] = c.lastMessage;
+          if (c.unreadCount > 0) initUnread[c.id] = c.unreadCount;
+        });
+        setLastMessages(initLast);
+        setUnreadCounts(initUnread);
       }
-      // console.log(temp);
     } catch (err) {
-      console.log(err);
       if (err?.response?.data?.message) {
         toast.error(err.response.data.message);
         if (err.response.data.message === "Please Login") {
-          localStorage.removeItem("userInfo");
-          setUser(null);
-          await axios.get("/auth/logout");
-          navigate("/login");
+          localStorage.removeItem("userInfo"); setUser(null);
+          await axios.get("/auth/logout"); navigate("/login");
         }
-      } else {
-        toast.error("Something went wrong");
       }
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const handleScheduleClick = () => {
-    setScheduleModalShow(true);
+    } finally { setChatLoading(false); }
   };
 
   const handleChatClick = async (chatId) => {
+    setActiveGroup(null);
+    setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
     try {
       setChatMessageLoading(true);
       const { data } = await axios.get(`http://localhost:8000/message/getMessages/${chatId}`);
       setChatMessages(data.data);
-      // console.log("Chat Messages:", data.data);
       setMessage("");
-      // console.log("Chats: ", chats);
-      const chatDetails = chats.find((chat) => chat.id === chatId);
-      setSelectedChat(chatDetails);
-      // console.log("selectedChat", chatDetails);
-      // console.log("Data", data.message);
+      const chat = chats.find((c) => c.id === chatId);
+      setSelectedChat(chat);
       socket.emit("join chat", chatId);
-      toast.success(data.message);
     } catch (err) {
-      console.log(err);
+      if (err?.response?.data?.message) toast.error(err.response.data.message);
+      else toast.error("Something went wrong");
+    } finally { setChatMessageLoading(false); }
+  };
+
+  const handleGroupClick = (group) => {
+    setSelectedChat(null);
+    setActiveGroup(group);
+    setGroupUnread(prev => ({ ...prev, [group._id]: 0 }));
+  };
+
+  const sendMessage = async () => {
+    if (message.trim() === "") { toast.error("Message is empty"); return; }
+    try {
+      socket.emit("stop typing", selectedChat._id);
+      const { data } = await axios.post("/message/sendMessage", {
+        chatId: selectedChat.id, content: message,
+      });
+      socket.emit("new message", data.data);
+      setChatMessages((prev) => [...prev, data.data]);
+      // Update last message for this chat
+      setLastMessages(prev => ({ ...prev, [selectedChat.id]: message }));
+      setMessage("");
+    } catch (err) {
       if (err?.response?.data?.message) {
         toast.error(err.response.data.message);
         if (err.response.data.message === "Please Login") {
-          localStorage.removeItem("userInfo");
-          setUser(null);
-          await axios.get("/auth/logout");
-          navigate("/login");
+          await axios.get("/auth/logout"); setUser(null);
+          localStorage.removeItem("userInfo"); navigate("/login");
         }
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setChatMessageLoading(false);
+      } else toast.error("Something went wrong");
     }
   };
 
-  const sendMessage = async (e) => {
-    try {
-      socket.emit("stop typing", selectedChat._id);
-      if (message === "") {
-        toast.error("Message is empty");
-        return;
-      }
-      const { data } = await axios.post("/message/sendMessage", { chatId: selectedChat.id, content: message });
-      // console.log("after sending message", data);
-      socket.emit("new message", data.data);
-      setChatMessages((prevState) => [...prevState, data.data]);
-      setMessage("");
-      // console.log("Data", data.message);
-      toast.success(data.message);
-    } catch (err) {
-      console.log(err);
-      if (err?.response?.data?.message) {
-        toast.error(err.response.data.message);
-        if (err.response.data.message === "Please Login") {
-          await axios.get("/auth/logout");
-          setUser(null);
-          localStorage.removeItem("userInfo");
-          navigate("/login");
-        }
-      } else {
-        toast.error("Something went wrong");
-      }
-    }
+  const handleVideoCall = () => {
+    if (!selectedChat) return;
+    const roomId = [user._id, selectedChat.userId].sort().join("_");
+    socket.emit("call-user", {
+      to: selectedChat.userId,
+      from: user._id,
+      fromName: user.name,
+      name: user.name,
+      roomId,
+    });
+    navigate(`/video/${roomId}?callerName=${encodeURIComponent(selectedChat.name)}`);
   };
 
   const getRequests = async () => {
@@ -177,465 +239,397 @@ const Chats = () => {
       setRequestLoading(true);
       const { data } = await axios.get("/request/getRequests");
       setRequests(data.data);
-      console.log(data.data);
       toast.success(data.message);
     } catch (err) {
-      console.log(err);
       if (err?.response?.data?.message) {
         toast.error(err.response.data.message);
         if (err.response.data.message === "Please Login") {
-          await axios.get("/auth/logout");
-          setUser(null);
-          localStorage.removeItem("userInfo");
-          navigate("/login");
+          await axios.get("/auth/logout"); setUser(null);
+          localStorage.removeItem("userInfo"); navigate("/login");
         }
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setRequestLoading(false);
-    }
+      } else toast.error("Something went wrong");
+    } finally { setRequestLoading(false); }
   };
 
   const handleTabClick = async (tab) => {
-    if (tab === "chat") {
-      setShowChatHistory(true);
-      setShowRequests(false);
-      await fetchChats();
-    } else if (tab === "requests") {
-      setShowChatHistory(false);
-      setShowRequests(true);
-      await getRequests();
-    }
+    setActiveTab(tab);
+    if (tab === "requests") await getRequests();
+    else await fetchChats();
   };
 
-  const handleRequestClick = (request) => {
-    setSelectedRequest(request);
-    setRequestModalShow(true);
-  };
+  const handleRequestClick  = (req) => { setSelectedRequest(req); setRequestModalShow(true); };
 
-  const handleRequestAccept = async (e) => {
-    console.log("Request accepted");
-
+  const handleRequestAccept = async () => {
     try {
       setAcceptRequestLoading(true);
       const { data } = await axios.post("/request/acceptRequest", { requestId: selectedRequest._id });
-      console.log(data);
       toast.success(data.message);
-      // remove this request from the requests list
-      setRequests((prevState) => prevState.filter((request) => request._id !== selectedRequest._id));
+      setRequests((prev) => prev.filter((r) => r._id !== selectedRequest._id));
     } catch (err) {
-      console.log(err);
-      if (err?.response?.data?.message) {
-        toast.error(err.response.data.message);
-        if (err.response.data.message === "Please Login") {
-          await axios.get("/auth/logout");
-          setUser(null);
-          localStorage.removeItem("userInfo");
-          navigate("/login");
-        }
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setAcceptRequestLoading(false);
-      setRequestModalShow(false);
-    }
+      toast.error(err?.response?.data?.message || "Something went wrong");
+    } finally { setAcceptRequestLoading(false); setRequestModalShow(false); }
   };
 
   const handleRequestReject = async () => {
-    console.log("Request rejected");
     try {
       setAcceptRequestLoading(true);
-      const { data } = axios.post("/request/rejectRequest", { requestId: selectedRequest._id });
-      console.log(data);
-      toast.success(data.message);
-      setRequests((prevState) => prevState.filter((request) => request._id !== selectedRequest._id));
+      await axios.post("/request/rejectRequest", { requestId: selectedRequest._id });
+      setRequests((prev) => prev.filter((r) => r._id !== selectedRequest._id));
     } catch (err) {
-      console.log(err);
-      if (err?.response?.data?.message) {
-        toast.error(err.response.data.message);
-        if (err.response.data.message === "Please Login") {
-          await axios.get("/auth/logout");
-          setUser(null);
-          localStorage.removeItem("userInfo");
-          navigate("/login");
-        }
-      } else {
-        toast.error("Something went wrong");
-      }
-    } finally {
-      setAcceptRequestLoading(false);
-      setRequestModalShow(false);
-    }
+      toast.error(err?.response?.data?.message || "Something went wrong");
+    } finally { setAcceptRequestLoading(false); setRequestModalShow(false); }
+  };
+
+  const fmt = (d) => {
+    if (!d) return "";
+    return new Date(d).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const truncate = (text, max = 28) => {
+    if (!text) return "";
+    return text.length > max ? text.slice(0, max) + "…" : text;
   };
 
   return (
-    <div className="container-overall">
-      <div className="container-right">
-        {/* Chat History */}
-        <div className="container-left">
-          {/* Tabs */}
-          <div className="tabs">
-            <Button
-              className="chatButton"
-              variant="secondary"
-              style={{
-                borderTop: showChatHistory ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderRight: showChatHistory ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderLeft: showChatHistory ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderBottom: "none",
-                backgroundColor: showChatHistory ? "#3bb4a1" : "#2d2d2d",
-                color: showChatHistory ? "black" : "white",
-                cursor: "pointer",
-                minWidth: "150px",
-                padding: "10px",
-                borderRadius: "5px 5px 0 0",
-              }}
-              onClick={() => handleTabClick("chat")}
-            >
-              Chat History
-            </Button>
-            <Button
-              className="requestButton"
-              variant="secondary"
-              style={{
-                borderTop: showRequests ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderRight: showRequests ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderLeft: showRequests ? "1px solid lightgrey" : "1px solid lightgrey",
-                borderBottom: "none",
-                backgroundColor: showChatHistory ? "#2d2d2d" : "#3bb4a1",
-                color: showChatHistory ? "white" : "black",
-                cursor: "pointer",
-                minWidth: "150px",
-                padding: "10px",
-                borderRadius: "5px 5px 0 0",
-              }}
-              onClick={() => handleTabClick("requests")}
-            >
+    <div className="ch-root">
+
+      {/* ══════════ SIDEBAR ══════════ */}
+      <aside className="ch-sidebar">
+        <div className="ch-sidebar-head">
+          <div className="ch-sidebar-top-row">
+            <span className="ch-sidebar-title">Messages</span>
+            <button className="ch-new-group-btn" onClick={() => setShowCreateGroup(true)} title="Create new group">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              New Group
+            </button>
+          </div>
+
+          <div className="ch-tabs">
+            <button className={`ch-tab ${activeTab === "chats" ? "ch-tab--active" : ""}`} onClick={() => handleTabClick("chats")}>Chats</button>
+            <button className={`ch-tab ${activeTab === "requests" ? "ch-tab--active" : ""}`} onClick={() => handleTabClick("requests")}>
               Requests
-            </Button>
+              {requests.length > 0 && <span className="ch-tab-badge">{requests.length}</span>}
+            </button>
           </div>
 
-          {/* Chat History or Requests List */}
-          {showChatHistory && (
-            <div className="container-left">
-              <ListGroup className="chat-list">
-                {chatLoading ? (
-                  <div className="row m-auto mt-5">
-                    <Spinner animation="border" variant="primary" />
-                  </div>
-                ) : (
-                  <>
-                    {chats.map((chat) => (
-                      <ListGroup.Item
-                        key={chat.id}
-                        onClick={() => handleChatClick(chat.id)}
-                        style={{
-                          cursor: "pointer",
-                          marginBottom: "10px",
-                          padding: "10px",
-                          backgroundColor: selectedChat?.id === chat?.id ? "#3BB4A1" : "lightgrey",
-                          borderRadius: "5px",
-                        }}
-                      >
-                        {chat.name}
-                      </ListGroup.Item>
-                    ))}
-                  </>
-                )}
-              </ListGroup>
-            </div>
-          )}
-          {showRequests && (
-            <div className="container-left">
-              <ListGroup style={{ padding: "10px" }}>
-                {requestLoading ? (
-                  <div className="row m-auto mt-5">
-                    <Spinner animation="border" variant="primary" />
-                  </div>
-                ) : (
-                  <>
-                    {requests.map((request) => (
-                      <ListGroup.Item
-                        key={request.id}
-                        onClick={() => handleRequestClick(request)}
-                        style={{
-                          cursor: "pointer",
-                          marginBottom: "10px",
-                          padding: "10px",
-                          backgroundColor:
-                            selectedRequest && selectedRequest.id === request.id ? "#3BB4A1" : "lightgrey",
-                          borderRadius: "5px",
-                        }}
-                      >
-                        {request.name}
-                      </ListGroup.Item>
-                    ))}
-                  </>
-                )}
-              </ListGroup>
-            </div>
-          )}
-          {requestModalShow && (
-            <div className="modalBG" onClick={() => setRequestModalShow(false)}>
-              <div className="modalContent">
-                <h2 style={{ textAlign: "center" }}>Confirm your choice?</h2>
-                {selectedRequest && (
-                  <RequestCard
-                    name={selectedRequest?.name}
-                    skills={selectedRequest?.skillsProficientAt}
-                    rating="4"
-                    picture={selectedRequest?.picture}
-                    username={selectedRequest?.username}
-                    onClose={() => setSelectedRequest(null)} // Close modal when clicked outside or close button
-                  />
-                )}
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <button className="connect-button" style={{ marginLeft: "0" }} onClick={handleRequestAccept}>
-                    {acceptRequestLoading ? (
-                      <div className="row m-auto ">
-                        <Spinner animation="border" variant="primary" />
-                      </div>
-                    ) : (
-                      "Accept!"
-                    )}
-                  </button>
-                  <button className="report-button" onClick={handleRequestReject}>
-                    {acceptRequestLoading ? (
-                      <div className="row m-auto ">
-                        <Spinner animation="border" variant="primary" />
-                      </div>
-                    ) : (
-                      "Reject"
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <label className="ch-search">
+            <SearchIcon />
+            <input type="text" placeholder="Search…" />
+          </label>
         </div>
-        {/* Right Section */}
-        <div className="container-chat">
-          {/* Profile Bar */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "10px",
-              borderBottom: "1px solid #2d2d2d",
-              minHeight: "50px",
-            }}
-          >
-            {/* Profile Info (Placeholder) */}
-            {selectedChat && (
-              <>
-                <div>
-                  <img
-                    src={selectedChat?.picture ? selectedChat.picture : "https://via.placeholder.com/150"}
-                    alt="Profile"
-                    style={{ width: "40px", height: "40px", borderRadius: "50%", marginRight: "10px" }}
-                  />
-                  <span style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}>
-                    {selectedChat?.username}
-                  </span>
-                </div>
-                <Button variant="info" onClick={handleScheduleClick}>
-                  Request Video Call
-                </Button>
-              </>
-            )}
 
-            {/* Schedule Video Call Button */}
-          </div>
-
-          {/* Chat Interface */}
-          <div style={{ flex: "7", position: "relative", height: "calc(100vh - 160px)" }}>
-            {/* Chat Messages */}
-            <div
-              style={{
-                height: "calc(100% - 50px)",
-                color: "#3BB4A1",
-                padding: "20px",
-                overflowY: "auto",
-                position: "relative",
-              }}
-            >
-              {selectedChat ? (
-                <ScrollableFeed forceScroll="true">
-                  {chatMessages.map((message, index) => {
-                    // console.log("user:", user._id);
-                    // console.log("sender:", message.sender);
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          display: "flex",
-                          justifyContent: message.sender._id == user._id ? "flex-end" : "flex-start",
-                          marginBottom: "10px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            backgroundColor: message.sender._id === user._id ? "#3BB4A1" : "#2d2d2d",
-                            color: "#ffffff",
-                            padding: "10px",
-                            borderRadius: "10px",
-                            maxWidth: "70%",
-                            textAlign: message.sender._id == user._id ? "right" : "left",
-                          }}
-                        >
-                          {message.content}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </ScrollableFeed>
-              ) : (
+        <div className="ch-list">
+          {activeTab === "chats" && (
+            <>
+              {chatLoading ? <CenteredSpinner /> : (
                 <>
-                  {chatMessageLoading ? (
-                    <div className="row h-100 d-flex justify-content-center align-items-center">
-                      <Spinner animation="border" variant="primary" />
-                    </div>
-                  ) : (
-                    <div className="row w-100 h-100 d-flex justify-content-center align-items-center">
-                      <h3 className="row w-100 d-flex justify-content-center align-items-center">
-                        Select a chat to start messaging
-                      </h3>
-                    </div>
+                  {chats.length > 0 && (
+                    <>
+                      <div className="ch-list-section-label">Direct</div>
+                      {chats.map((chat) => (
+                        <button
+                          key={chat.id}
+                          className={`ch-item ${selectedChat?.id === chat.id ? "ch-item--active" : ""}`}
+                          onClick={() => handleChatClick(chat.id)}
+                        >
+                          <Avatar src={chat.picture} name={chat.name} size={40} />
+                          <div className="ch-item-info">
+                            <div className="ch-item-name-row">
+                              <span className="ch-item-name">{chat.name}</span>
+                              {unreadCounts[chat.id] > 0 && (
+                                <span className="ch-unread-badge">{unreadCounts[chat.id]}</span>
+                              )}
+                            </div>
+                            <span className={`ch-item-sub ${unreadCounts[chat.id] > 0 ? "ch-item-sub--unread" : ""}`}>
+                              {lastMessages[chat.id]
+                                ? truncate(lastMessages[chat.id])
+                                : `@${chat.username}`}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {groups.length > 0 && (
+                    <>
+                      <div className="ch-list-section-label">Groups</div>
+                      {groups.map((grp) => (
+                        <button
+                          key={grp._id}
+                          className={`ch-item ${activeGroup?._id === grp._id ? "ch-item--active" : ""}`}
+                          onClick={() => handleGroupClick(grp)}
+                        >
+                          <div className="ch-group-avatar">
+                            {grp.picture
+                              ? <img src={grp.picture} alt={grp.name} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} />
+                              : <span className="ch-group-avatar-letter">{grp.name?.[0]?.toUpperCase()}</span>
+                            }
+                          </div>
+                          <div className="ch-item-info">
+                            <div className="ch-item-name-row">
+                              <span className="ch-item-name">{grp.name}</span>
+                              {groupUnread[grp._id] > 0 && (
+                                <span className="ch-unread-badge">{groupUnread[grp._id]}</span>
+                              )}
+                            </div>
+                            <span className={`ch-item-sub ${groupUnread[grp._id] > 0 ? "ch-item-sub--unread" : ""}`}>
+                              {grp.members?.length} members
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {chats.length === 0 && groups.length === 0 && (
+                    <EmptyState icon="💬" text="No conversations yet" />
                   )}
                 </>
               )}
+            </>
+          )}
+
+          {activeTab === "requests" && (
+            requestLoading ? <CenteredSpinner /> :
+            requests.length === 0 ? <EmptyState icon="📨" text="No pending requests" /> :
+            requests.map((req) => (
+              <button key={req._id} className="ch-item" onClick={() => handleRequestClick(req)}>
+                <Avatar src={req.picture} name={req.name} size={40} />
+                <div className="ch-item-info">
+                  <span className="ch-item-name">{req.name}</span>
+                  <span className="ch-item-sub ch-item-sub--req">Skill swap request</span>
+                </div>
+                <span className="ch-req-dot" />
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      {/* ══════════ MAIN ══════════ */}
+      <main className="ch-main">
+        {activeGroup ? (
+         
+<GroupChatView
+  group={activeGroup}
+  socket={socket}
+  currentUser={user}
+  onGroupUpdated={(action, data) => {
+    if (action === "left" || action === "deleted") {
+      // Remove from sidebar and clear the active view
+      setGroups(prev => prev.filter(g => g._id !== (typeof data === "string" ? data : data?._id)));
+      setActiveGroup(null);
+    } else if (action === "updated") {
+      // Update the group in the sidebar list
+      setGroups(prev => prev.map(g => g._id === data._id ? data : g));
+      setActiveGroup(data);
+    }
+  }}
+/>
+ 
+          
+        ) : (
+          <>
+            <div className="ch-topbar">
+              {selectedChat ? (
+                <>
+                  <div className="ch-topbar-left">
+                    <Avatar src={selectedChat.picture} name={selectedChat.name} size={36} />
+                    <div>
+                      <p className="ch-topbar-name">{selectedChat.name}</p>
+                      <p className="ch-topbar-handle">@{selectedChat.username}</p>
+                    </div>
+                  </div>
+                  <div className="ch-topbar-right">
+                    <button className="ch-icon-btn" onClick={handleVideoCall} title="Video call"><FaVideo size={15} /></button>
+                    <button className="ch-profile-btn" onClick={() => setShowSchedule(true)}>Schedule</button>
+                    <Link to={`/profile/${selectedChat.username}`} state={{ from: "/chats" }}  className="ch-profile-btn">View profile →</Link>
+                  </div>
+                </>
+              ) : (
+                <span className="ch-topbar-placeholder">Select a conversation to start messaging</span>
+              )}
             </div>
 
-            {/* Chat Input */}
-            {selectedChat && (
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "0",
-                  left: "0",
-                  right: "0",
-                  padding: "10px",
-                  borderTop: "1px solid #2d2d2d",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Type your message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  style={{
-                    flex: "1",
-                    padding: "10px",
-                    borderRadius: "5px",
-                    marginRight: "10px",
-                    border: "1px solid #2d2d2d",
-                  }}
-                />
-                <Button variant="success" style={{ padding: "10px 20px", borderRadius: "5px" }} onClick={sendMessage}>
-                  Send
-                </Button>
+            {selectedChat ? (
+              chatMessageLoading ? <CenteredSpinner flex /> : (
+                <div className="ch-messages">
+                  <div className="ch-date-divider">
+                    <span className="ch-date-line" />
+                    <span className="ch-date-label">Today</span>
+                    <span className="ch-date-line" />
+                  </div>
+                  <ScrollableFeed forceScroll={true}>
+                    {chatMessages.map((msg, i) => {
+                      const isMe = msg.sender._id === ME_ID || msg.sender._id === "me";
+                      return (
+                        <div key={i} className={`ch-msg-row ${isMe ? "ch-msg-row--me" : "ch-msg-row--them"}`}>
+                          {!isMe && <Avatar src={selectedChat.picture} name={selectedChat.name} size={28} cls="ch-msg-avatar" />}
+                          <div className="ch-msg-wrap">
+                            <div className={`ch-bubble ${isMe ? "ch-bubble--me" : "ch-bubble--them"}`}>{msg.content}</div>
+                            {msg.createdAt && <span className={`ch-msg-time ${isMe ? "ch-msg-time--me" : ""}`}>{fmt(msg.createdAt)}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </ScrollableFeed>
+                </div>
+              )
+            ) : (
+              <div className="ch-empty">
+                <div className="ch-empty-glyph">✦</div>
+                <p className="ch-empty-heading">No conversation selected</p>
+                <p className="ch-empty-sub">Choose a chat or group from the sidebar</p>
               </div>
             )}
+
+            {selectedChat && (
+              <div className="ch-input-bar">
+                <label className="ch-attach-btn" title="Share file, photo or document">
+                  <input
+                    type="file"
+                    accept="image/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.txt,.zip"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      setMessage(`📎 ${file.name}`);
+                      toast.info(`${file.name} selected — press send to share`);
+                      e.target.value = "";
+                    }}
+                  />
+                  <AttachIcon />
+                </label>
+                <input
+                  className="ch-input"
+                  type="text"
+                  placeholder={`Message ${selectedChat.name}…`}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
+                />
+                <button className="ch-send-btn" onClick={sendMessage} title="Send"><SendIcon /></button>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* ══════════ CREATE GROUP MODAL ══════════ */}
+      {showCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroup(false)}
+          onCreated={(newGroup) => {
+            setGroups(prev => [newGroup, ...prev]);
+            setActiveGroup(newGroup);
+            setSelectedChat(null);
+          }}
+        />
+      )}
+
+      {/* ══════════ REQUEST MODAL ══════════ */}
+      {requestModalShow && (
+        <div className="ch-modal-overlay" onClick={() => setRequestModalShow(false)}>
+          <div className="ch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ch-modal-head">
+              <h3 className="ch-modal-title">Skill Exchange Request</h3>
+              <p className="ch-modal-sub">Review and decide whether to accept</p>
+            </div>
+            {selectedRequest && (
+              <RequestCard name={selectedRequest.name} skills={selectedRequest.skillsProficientAt} rating="4" picture={selectedRequest.picture} username={selectedRequest.username} />
+            )}
+            <div className="ch-modal-actions">
+              <button className="ch-btn ch-btn--accept" onClick={handleRequestAccept}>
+                {acceptRequestLoading ? <Spinner animation="border" size="sm" /> : <><CheckIcon /> Accept</>}
+              </button>
+              <button className="ch-btn ch-btn--decline" onClick={handleRequestReject}>
+                {acceptRequestLoading ? <Spinner animation="border" size="sm" /> : <><CrossIcon /> Decline</>}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Schedule Video Call Modal */}
-      {scheduleModalShow && (
-        <div
-          style={{
-            position: "fixed",
-            top: "0",
-            left: "0",
-            width: "100%",
-            height: "100%",
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            zIndex: "500",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              backgroundColor: "#2d2d2d",
-              color: "#3BB4A1",
-              padding: "50px",
-              borderRadius: "10px",
-              zIndex: "1001",
-            }}
-          >
-            <h3>Request a Meeting</h3>
-            <Form>
-              <Form.Group controlId="formDate" style={{ marginBottom: "20px", zIndex: "1001" }}>
-                <Form.Label>Preferred Date</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={scheduleForm.date}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, date: e.target.value })}
-                />
-              </Form.Group>
+      {/* ══════════ INCOMING CALL POPUP — shows on ANY page ══════════ */}
+      {incomingCall && (
+        <div className="ch-call-popup">
+          <div className="ch-call-ring" />
+          <p className="ch-call-name">{incomingCall.name || incomingCall.fromName}</p>
+          <p className="ch-call-sub">Incoming video call…</p>
+          <div className="ch-call-actions">
+            <button
+              className="ch-call-btn ch-call-btn--accept"
+              onClick={() => {
+                const roomId = incomingCall.roomId;
+                setIncomingCall(null);
+                navigate(`/video/${roomId}?receiver=true`);
+              }}
+            >
+              <PhoneIcon /> Accept
+            </button>
+            <button className="ch-call-btn ch-call-btn--reject" onClick={() => setIncomingCall(null)}>
+              <EndCallIcon /> Decline
+            </button>
+          </div>
+        </div>
+      )}
 
-              <Form.Group controlId="formTime" style={{ marginBottom: "20px", zIndex: "1001" }}>
-                <Form.Label>Preferred Time</Form.Label>
-                <Form.Control
-                  type="time"
-                  value={scheduleForm.time}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
-                />
-              </Form.Group>
-
-              <Button
-                variant="success"
-                type="submit"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  if (scheduleForm.date === "" || scheduleForm.time === "") {
-                    toast.error("Please fill all the fields");
-                    return;
-                  }
-
-                  scheduleForm.username = selectedChat.username;
-                  try {
-                    const { data } = await axios.post("/user/sendScheduleMeet", scheduleForm);
-                    toast.success("Request mail has been sent successfully!");
-                    setScheduleForm({
-                      date: "",
-                      time: "",
-                    });
-                  } catch (error) {
-                    console.log(error);
-                    if (error?.response?.data?.message) {
-                      toast.error(error.response.data.message);
-                      if (error.response.data.message === "Please Login") {
-                        localStorage.removeItem("userInfo");
-                        setUser(null);
-                        await axios.get("/auth/logout");
-                        navigate("/login");
-                      }
-                    } else {
-                      toast.error("Something went wrong");
-                    }
-                  }
-                  setScheduleModalShow(false);
-                }}
-              >
-                Submit
-              </Button>
-              <Button variant="danger" onClick={() => setScheduleModalShow(false)} style={{ marginLeft: "10px" }}>
-                Cancel
-              </Button>
-            </Form>
+      {/* ══════════ SCHEDULE MODAL ══════════ */}
+      {showSchedule && selectedChat && (
+        <div className="ch-modal-overlay" onClick={() => setShowSchedule(false)}>
+          <div className="ch-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ch-modal-head">
+              <h3 className="ch-modal-title">Schedule Session with {selectedChat.name}</h3>
+            </div>
+            <label>Date</label>
+            <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} />
+            <label>Time</label>
+            <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+            <div className="ch-modal-actions">
+              <button className="ch-btn ch-btn--decline" onClick={() => setShowSchedule(false)}>Cancel</button>
+              <button className="ch-btn ch-btn--accept" onClick={async () => {
+                try {
+                  await axios.post("http://localhost:8000/meeting/schedule", {
+                    participantId: selectedChat.userId, date: scheduleDate, time: scheduleTime,
+                  }, { withCredentials: true });
+                  toast.success("Session scheduled successfully");
+                  setShowSchedule(false); setScheduleDate(""); setScheduleTime("");
+                } catch { toast.error("Failed to schedule session"); }
+              }}>Schedule</button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+/* ── Sub-components ── */
+const Avatar = ({ src, name, size, cls = "" }) => {
+  const initials = (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const [errored, setErrored] = React.useState(false);
+  if (src && !errored) {
+    return <img src={src} alt={name} className={`ch-avatar ${cls}`} style={{ width: size, height: size }} onError={() => setErrored(true)} />;
+  }
+  return <div className={`ch-avatar ch-avatar--initials ${cls}`} style={{ width: size, height: size, fontSize: size * 0.35 }}>{initials}</div>;
+};
+
+const CenteredSpinner = ({ flex }) => (
+  <div className={flex ? "ch-spinner-flex" : "ch-spinner-center"}><div className="ch-spinner" /></div>
+);
+const EmptyState = ({ icon, text }) => (
+  <div className="ch-list-empty"><span className="ch-list-empty-icon">{icon}</span><span>{text}</span></div>
+);
+
+const SearchIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
+const AttachIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>;
+const SendIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
+const CheckIcon  = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+const CrossIcon  = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+const PhoneIcon  = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.46 8.81 19.79 19.79 0 01.4 4.18 2 2 0 012.39 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 9.91a16 16 0 006.18 6.18l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
+const EndCallIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
 export default Chats;

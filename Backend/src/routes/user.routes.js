@@ -14,6 +14,9 @@ import {
   uploadPic,
   discoverUsers,
   sendScheduleMeet,
+  updateAccount,
+  deleteAccount,
+    getSkillMatches
 } from "../controllers/user.controllers.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
@@ -42,7 +45,10 @@ router.route("/registered/getDetails").get(verifyJWT_username, userDetailsWithou
 // get profiles for discover page
 router.route("/discover").get(verifyJWT_username, discoverUsers);
 
+router.patch("/updateAccount", verifyJWT_username, updateAccount);
+router.delete("/deleteAccount", verifyJWT_username, deleteAccount);
+
 // send schedule meet email
 router.route("/sendScheduleMeet").post(verifyJWT_username, sendScheduleMeet);
-
+router.get("/skillMatches", verifyJWT_username, getSkillMatches);
 export default router;

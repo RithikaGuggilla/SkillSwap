@@ -1,1167 +1,535 @@
-import Tab from "react-bootstrap/Tab";
-import Tabs from "react-bootstrap/Tabs";
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Spinner from "react-bootstrap/Spinner";
-import Form from "react-bootstrap/Form";
 import { skills } from "./Skills";
 import axios from "axios";
 import "./Register.css";
-import Badge from "react-bootstrap/Badge";
 import { v4 as uuidv4 } from "uuid";
+import LearningPathTab from "./LearningPathTab";
+
+const TABS = ["registration", "education", "additional", "learningpath", "preview"];
+const TAB_LABELS = ["Profile", "Education", "About", "Learning Path", "Confirm"];
+const TAB_STEPS  = ["01", "02", "03", "04", "05"];
 
 const Register = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading,     setLoading]     = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [activeKey,   setActiveKey]   = useState("registration");
 
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    username: "",
-    portfolioLink: "",
-    githubLink: "",
-    linkedinLink: "",
-    skillsProficientAt: [],
-    skillsToLearn: [],
-    education: [
-      {
-        id: uuidv4(),
-        institution: "",
-        degree: "",
-        startDate: "",
-        endDate: "",
-        score: "",
-        description: "",
-      },
-    ],
-    bio: "",
-    projects: [],
+    name: "", email: "", username: "",
+    portfolioLink: "", githubLink: "", linkedinLink: "",
+    skillsProficientAt: [], skillsToLearn: [],
+    education: [{ id: uuidv4(), institution: "", degree: "", startDate: "", endDate: "", score: "", description: "" }],
+    bio: "", projects: [],
   });
-  const [skillsProficientAt, setSkillsProficientAt] = useState("Select some skill");
-  const [skillsToLearn, setSkillsToLearn] = useState("Select some skill");
-  const [techStack, setTechStack] = useState([]);
 
-  const [activeKey, setActiveKey] = useState("registration");
+  const [skillProfInput,  setSkillProfInput]  = useState("Select some skill");
+  const [skillLearnInput, setSkillLearnInput] = useState("Select some skill");
+  const [techStack,       setTechStack]       = useState([]);
 
   useEffect(() => {
-    setLoading(true);
     const getUser = async () => {
       try {
         const { data } = await axios.get("/user/unregistered/getDetails");
-        console.log("User Data: ", data.data);
         const edu = data?.data?.education;
-        edu.forEach((ele) => {
-          ele.id = uuidv4();
-        });
-        if (edu.length === 0) {
-          edu.push({
-            id: uuidv4(),
-            institution: "",
-            degree: "",
-            startDate: "",
-            endDate: "",
-            score: "",
-            description: "",
-          });
-        }
-        const proj = data?.data?.projects;
-        proj.forEach((ele) => {
-          ele.id = uuidv4();
-        });
-        console.log(proj);
-        if (proj) {
-          setTechStack(proj.map((item) => "Select some Tech Stack"));
-        }
-        setForm((prevState) => ({
-          ...prevState,
-          name: data?.data?.name,
-          email: data?.data?.email,
-          username: data?.data?.username,
-          skillsProficientAt: data?.data?.skillsProficientAt,
-          skillsToLearn: data?.data?.skillsToLearn,
-          linkedinLink: data?.data?.linkedinLink,
-          githubLink: data?.data?.githubLink,
-          portfolioLink: data?.data?.portfolioLink,
-          education: edu,
-          bio: data?.data?.bio,
-          projects: proj ? proj : prevState.projects,
+        edu.forEach(e => { e.id = uuidv4(); });
+        if (!edu.length) edu.push({ id: uuidv4(), institution: "", degree: "", startDate: "", endDate: "", score: "", description: "" });
+        const proj = data?.data?.projects || [];
+        proj.forEach(e => { e.id = uuidv4(); });
+        setTechStack(proj.map(() => "Select some Tech Stack"));
+        setForm(prev => ({
+          ...prev,
+          name: data?.data?.name, email: data?.data?.email,
+          username: data?.data?.username || "",
+          skillsProficientAt: data?.data?.skillsProficientAt || [],
+          skillsToLearn: data?.data?.skillsToLearn || [],
+          linkedinLink: data?.data?.linkedinLink || "",
+          githubLink: data?.data?.githubLink || "",
+          portfolioLink: data?.data?.portfolioLink || "",
+          education: edu, bio: data?.data?.bio || "",
+          projects: proj.length ? proj : prev.projects,
         }));
-      } catch (error) {
-        console.log(error);
-        if (error?.response?.data?.message) {
-          toast.error(error.response.data.message);
-          navigate("/login");
-        } else {
-          toast.error("Some error occurred");
-        }
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) {
+        toast.error(err?.response?.data?.message || "Some error occurred");
+        navigate("/login");
+      } finally { setLoading(false); }
     };
     getUser();
   }, []);
 
-  const handleNext = () => {
-    const tabs = ["registration", "education", "longer-tab", "Preview"];
-    const currentIndex = tabs.indexOf(activeKey);
-    if (currentIndex < tabs.length - 1) {
-      setActiveKey(tabs[currentIndex + 1]);
-    }
+  const goNext = () => {
+    const i = TABS.indexOf(activeKey);
+    if (i < TABS.length - 1) setActiveKey(TABS[i + 1]);
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    if (type === "checkbox") {
-      setForm((prevState) => ({
-        ...prevState,
-        [name]: checked ? [...prevState[name], value] : prevState[name].filter((item) => item !== value),
-      }));
-    } else {
-      if (name === "bio" && value.length > 500) {
-        toast.error("Bio should be less than 500 characters");
-        return;
-      }
-      setForm((prevState) => ({
-        ...prevState,
-        [name]: value,
-      }));
-    }
-    // console.log("Form: ", form);
-  };
-
-  const handleAddSkill = (e) => {
-    const { name } = e.target;
-    if (name === "skill_to_learn") {
-      if (skillsToLearn === "Select some skill") {
-        toast.error("Select a skill to add");
-        return;
-      }
-      if (form.skillsToLearn.includes(skillsToLearn)) {
-        toast.error("Skill already added");
-        return;
-      }
-      if (form.skillsProficientAt.includes(skillsToLearn)) {
-        toast.error("Skill already added in skills proficient at");
-        return;
-      }
-      setForm((prevState) => ({
-        ...prevState,
-        skillsToLearn: [...prevState.skillsToLearn, skillsToLearn],
-      }));
-    } else {
-      if (skillsProficientAt === "Select some skill") {
-        toast.error("Select a skill to add");
-        return;
-      }
-      if (form.skillsProficientAt.includes(skillsProficientAt)) {
-        toast.error("Skill already added");
-        return;
-      }
-      if (form.skillsToLearn.includes(skillsProficientAt)) {
-        toast.error("Skill already added in skills to learn");
-        return;
-      }
-      setForm((prevState) => ({
-        ...prevState,
-        skillsProficientAt: [...prevState.skillsProficientAt, skillsProficientAt],
-      }));
-    }
-    // console.log("Form: ", form);
-  };
-
-  const handleRemoveSkill = (e, temp) => {
-    const skill = e.target.innerText.split(" ")[0];
-    if (temp === "skills_proficient_at") {
-      setForm((prevState) => ({
-        ...prevState,
-        skillsProficientAt: prevState.skillsProficientAt.filter((item) => item !== skill),
-      }));
-    } else {
-      setForm((prevState) => ({
-        ...prevState,
-        skillsToLearn: prevState.skillsToLearn.filter((item) => item !== skill),
-      }));
-    }
-    console.log("Form: ", form);
-  };
-
-  const handleRemoveEducation = (e, tid) => {
-    const updatedEducation = form.education.filter((item, i) => item.id !== tid);
-    console.log("Updated Education: ", updatedEducation);
-    setForm((prevState) => ({
-      ...prevState,
-      education: updatedEducation,
-    }));
-  };
-
-  const handleEducationChange = (e, index) => {
+  const handleInput = e => {
     const { name, value } = e.target;
-    setForm((prevState) => ({
-      ...prevState,
-      education: prevState.education.map((item, i) => (i === index ? { ...item, [name]: value } : item)),
-    }));
-    console.log("Form: ", form);
+    if (name === "bio" && value.length > 500) { toast.error("Bio max 500 characters"); return; }
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAdditionalChange = (e, index) => {
+  const addSkill = (type) => {
+    if (type === "learn") {
+      if (skillLearnInput === "Select some skill") { toast.error("Select a skill"); return; }
+      if (form.skillsToLearn.includes(skillLearnInput)) { toast.error("Already added"); return; }
+      if (form.skillsProficientAt.includes(skillLearnInput)) { toast.error("Already in proficient skills"); return; }
+      setForm(prev => ({ ...prev, skillsToLearn: [...prev.skillsToLearn, skillLearnInput] }));
+    } else {
+      if (skillProfInput === "Select some skill") { toast.error("Select a skill"); return; }
+      if (form.skillsProficientAt.includes(skillProfInput)) { toast.error("Already added"); return; }
+      if (form.skillsToLearn.includes(skillProfInput)) { toast.error("Already in skills to learn"); return; }
+      setForm(prev => ({ ...prev, skillsProficientAt: [...prev.skillsProficientAt, skillProfInput] }));
+    }
+  };
+
+  const removeSkill = (skill, type) => {
+    if (type === "prof") setForm(prev => ({ ...prev, skillsProficientAt: prev.skillsProficientAt.filter(s => s !== skill) }));
+    else setForm(prev => ({ ...prev, skillsToLearn: prev.skillsToLearn.filter(s => s !== skill) }));
+  };
+
+  const handleEduChange = (e, i) => {
     const { name, value } = e.target;
-    console.log("Name", name);
-    console.log("Value", value);
-    setForm((prevState) => ({
-      ...prevState,
-      projects: prevState.projects.map((item, i) => (i === index ? { ...item, [name]: value } : item)),
-    }));
-    console.log("Form: ", form);
+    setForm(prev => ({ ...prev, education: prev.education.map((item, idx) => idx === i ? { ...item, [name]: value } : item) }));
   };
 
-  const validateRegForm = () => {
-    if (!form.username) {
-      toast.error("Username is empty");
-      return false;
-    }
-    if (!form.skillsProficientAt.length) {
-      toast.error("Enter atleast one Skill you are proficient at");
-      return false;
-    }
-    if (!form.skillsToLearn.length) {
-      toast.error("Enter atleast one Skill you want to learn");
-      return false;
-    }
-    if (!form.portfolioLink && !form.githubLink && !form.linkedinLink) {
-      toast.error("Enter atleast one link among portfolio, github and linkedin");
-      return false;
-    }
-    const githubRegex = /^(?:http(?:s)?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+(?:\/)?$/;
-    if (form.githubLink && githubRegex.test(form.githubLink) === false) {
-      toast.error("Enter a valid github link");
-      return false;
-    }
-    const linkedinRegex = /^(?:http(?:s)?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+(?:\/)?$/;
-    if (form.linkedinLink && linkedinRegex.test(form.linkedinLink) === false) {
-      toast.error("Enter a valid linkedin link");
-      return false;
-    }
-    if (form.portfolioLink && form.portfolioLink.includes("http") === false) {
-      toast.error("Enter a valid portfolio link");
-      return false;
+  const handleProjChange = (e, i) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, projects: prev.projects.map((item, idx) => idx === i ? { ...item, [name]: value } : item) }));
+  };
+
+  const validateReg = () => {
+    if (!form.username) { toast.error("Username is required"); return false; }
+    if (!form.linkedinLink && !form.githubLink) { toast.error("LinkedIn or GitHub link is required"); return false; }
+    const ghReg = /^(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+\/?$/;
+    if (form.githubLink && !ghReg.test(form.githubLink)) { toast.error("Invalid GitHub link"); return false; }
+    const liReg = /^(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+\/?$/;
+    if (form.linkedinLink && !liReg.test(form.linkedinLink)) { toast.error("Invalid LinkedIn link"); return false; }
+    if (form.portfolioLink && !form.portfolioLink.includes("http")) { toast.error("Invalid portfolio link"); return false; }
+    if (!form.skillsProficientAt.length) { toast.error("Add at least one skill you can teach"); return false; }
+    if (!form.skillsToLearn.length) { toast.error("Add at least one skill to learn"); return false; }
+    return true;
+  };
+
+  const validateEdu = () => {
+    for (let i = 0; i < form.education.length; i++) {
+      const e = form.education[i];
+      if (!e.institution) { toast.error(`Education ${i+1}: Institution required`); return false; }
+      if (!e.degree)      { toast.error(`Education ${i+1}: Degree required`); return false; }
+      if (!e.startDate)   { toast.error(`Education ${i+1}: Start date required`); return false; }
+      if (!e.endDate)     { toast.error(`Education ${i+1}: End date required`); return false; }
+      if (!e.score)       { toast.error(`Education ${i+1}: Score required`); return false; }
     }
     return true;
   };
-  const validateEduForm = () => {
-    form.education.forEach((edu, index) => {
-      if (!edu.institution) {
-        toast.error(`Institution name is empty in education field ${index + 1}`);
-        return false;
-      }
-      if (!edu.degree) {
-        toast.error("Degree is empty");
-        return false;
-      }
-      if (!edu.startDate) {
-        toast.error("Start date is empty");
-        return false;
-      }
-      if (!edu.endDate) {
-        toast.error("End date is empty");
-        return false;
-      }
-      if (!edu.score) {
-        toast.error("Score is empty");
-        return false;
-      }
+
+  const validateAdd = () => {
+    if (!form.bio)            { toast.error("Bio is required"); return false; }
+    if (form.bio.length < 50) { toast.error("Bio must be at least 50 characters"); return false; }
+    if (form.bio.length > 500){ toast.error("Bio max 500 characters"); return false; }
+    let ok = true;
+    form.projects.forEach((p, i) => {
+      if (!p.title)           { toast.error(`Project ${i+1}: Title required`); ok = false; }
+      if (!p.techStack.length){ toast.error(`Project ${i+1}: Tech stack required`); ok = false; }
+      if (!p.startDate)       { toast.error(`Project ${i+1}: Start date required`); ok = false; }
+      if (!p.endDate)         { toast.error(`Project ${i+1}: End date required`); ok = false; }
+      if (!p.projectLink)     { toast.error(`Project ${i+1}: Project link required`); ok = false; }
+      if (!p.description)     { toast.error(`Project ${i+1}: Description required`); ok = false; }
+      if (p.startDate > p.endDate) { toast.error(`Project ${i+1}: Start date must be before end date`); ok = false; }
+      if (p.projectLink && !p.projectLink.match(/^(http|https):\/\/[^ "]+$/)) { toast.error(`Project ${i+1}: Invalid project link`); ok = false; }
     });
-    return true;
+    return ok;
   };
-  const validateAddForm = () => {
-    if (!form.bio) {
-      toast.error("Bio is empty");
-      return false;
-    }
-    if (form.bio.length > 500) {
-      toast.error("Bio should be less than 500 characters");
-      return false;
-    }
-    var flag = true;
-    form.projects.forEach((project, index) => {
-      if (!project.title) {
-        toast.error(`Title is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.techStack.length) {
-        toast.error(`Tech Stack is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.startDate) {
-        toast.error(`Start Date is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.endDate) {
-        toast.error(`End Date is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.projectLink) {
-        toast.error(`Project Link is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.description) {
-        toast.error(`Description is empty in project ${index + 1}`);
-        flag = false;
-      }
-      if (project.startDate > project.endDate) {
-        toast.error(`Start Date should be less than End Date in project ${index + 1}`);
-        flag = false;
-      }
-      if (!project.projectLink.match(/^(http|https):\/\/[^ "]+$/)) {
-        console.log("Valid URL");
-        toast.error(`Please provide valid project link in project ${index + 1}`);
-        flag = false;
-      }
-    });
-    return flag;
+
+  const saveReg = async () => {
+    if (!validateReg()) return;
+    setSaveLoading(true);
+    try { await axios.post("/user/unregistered/saveRegDetails", form); toast.success("Saved"); }
+    catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+    finally { setSaveLoading(false); }
   };
-  const handleSaveRegistration = async () => {
-    const check = validateRegForm();
-    if (check) {
-      setSaveLoading(true);
-      try {
-        const { data } = await axios.post("/user/unregistered/saveRegDetails", form);
-        toast.success("Details saved successfully");
-      } catch (error) {
-        console.log(error);
-        if (error?.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error("Some error occurred");
-        }
-      } finally {
-        setSaveLoading(false);
-      }
-    }
+
+  const saveEdu = async () => {
+    if (!validateReg() || !validateEdu()) return;
+    setSaveLoading(true);
+    try { await axios.post("/user/unregistered/saveEduDetail", form); toast.success("Saved"); }
+    catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+    finally { setSaveLoading(false); }
   };
-  const handleSaveEducation = async () => {
-    const check1 = validateRegForm();
-    const check2 = validateEduForm();
-    if (check1 && check2) {
-      setSaveLoading(true);
-      try {
-        const { data } = await axios.post("/user/unregistered/saveEduDetail", form);
-        toast.success("Details saved successfully");
-      } catch (error) {
-        console.log(error);
-        if (error?.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error("Some error occurred");
-        }
-      } finally {
-        setSaveLoading(false);
-      }
-    }
-  };
-  const handleSaveAdditional = async () => {
-    const check1 = validateRegForm();
-    const check2 = validateEduForm();
-    const check3 = await validateAddForm();
-    console.log(check1, check2, check3);
-    if (check1 && check2 && check3) {
-      setSaveLoading(true);
-      try {
-        const { data } = await axios.post("/user/unregistered/saveAddDetail", form);
-        toast.success("Details saved successfully");
-      } catch (error) {
-        console.log(error);
-        if (error?.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error("Some error occurred");
-        }
-      } finally {
-        setSaveLoading(false);
-      }
-    }
+
+  const saveAdd = async () => {
+    if (!validateReg() || !validateEdu() || !validateAdd()) return;
+    setSaveLoading(true);
+    try { await axios.post("/user/unregistered/saveAddDetail", form); toast.success("Saved"); }
+    catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+    finally { setSaveLoading(false); }
   };
 
   const handleSubmit = async () => {
-    const check1 = validateRegForm();
-    const check2 = validateEduForm();
-    const check3 = validateAddForm();
-    if (check1 && check2 && check3) {
-      setSaveLoading(true);
-      try {
-        const { data } = await axios.post("/user/registerUser", form);
-        toast.success("Registration Successful");
-        console.log("Data: ", data.data);
-        navigate("/discover");
-      } catch (error) {
-        console.log(error);
-        if (error?.response?.data?.message) {
-          toast.error(error.response.data.message);
-        } else {
-          toast.error("Some error occurred");
-        }
-      } finally {
-        setSaveLoading(false);
-      }
-    }
+    if (!validateReg() || !validateEdu() || !validateAdd()) return;
+    setSaveLoading(true);
+    try {
+      await axios.post("/user/registerUser", form);
+      toast.success("Registration successful!");
+      navigate("/discover");
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+    finally { setSaveLoading(false); }
   };
 
+  const bioLen = form.bio.length;
+  const activeIdx = TABS.indexOf(activeKey);
+
+  if (loading) return (
+    <div className="register_page">
+      <div style={{ height: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Spinner animation="border" style={{ color: "white" }} />
+      </div>
+    </div>
+  );
+
   return (
-    <div className="register_page ">
-      <h1 className="m-4" style={{ fontFamily: "Oswald", color: "#3BB4A1" }}>
-        Registration Form
-      </h1>
-      {loading ? (
-        <div className="row m-auto w-100 d-flex justify-content-center align-items-center" style={{ height: "80.8vh" }}>
-          <Spinner animation="border" variant="primary" />
+    <div className="register_page">
+      <h1>SkillSwap</h1>
+      <p className="register_subtitle">Complete your profile to get started</p>
+
+      <div className="register_section">
+
+        {/* ── Stepper tab nav ── */}
+        <div className="reg-tab-nav">
+          {TABS.map((tab, i) => (
+            <button
+              key={tab}
+              data-step={TAB_STEPS[i]}
+              className={`reg-tab-btn ${activeKey === tab ? "active" : ""} ${i < activeIdx ? "completed" : ""}`}
+              onClick={() => setActiveKey(tab)}
+            >
+              {TAB_LABELS[i]}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="register_section mb-3">
-          <Tabs
-            defaultActiveKey="registration"
-            id="justify-tab-example"
-            className="mb-3"
-            activeKey={activeKey}
-            onSelect={(k) => setActiveKey(k)}
-          >
-            <Tab eventKey="registration" title="Registration">
-              {/* Name */}
+
+        {/* ── TAB 1: Registration ── */}
+        {activeKey === "registration" && (
+          <div className="reg-tab-content">
+            <div className="reg-step-header">
+              <div className="reg-step-number">01</div>
               <div>
-                <label style={{ color: "#3BB4A1" }}>Name</label>
-                <br />
-                <input
-                  type="text"
-                  name="username"
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  value={form.name}
-                  disabled
-                />
+                <div className="reg-step-title">Your Profile</div>
+                <div className="reg-step-desc">Basic info, links, and skills</div>
               </div>
-              {/* Email */}
+            </div>
+
+            <div className="reg-field-row">
               <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Email
-                </label>
-                <br />
-                <input
-                  type="text"
-                  name="username"
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  value={form.email}
-                  disabled
-                />
+                <label className="reg-label">Name</label>
+                <input className="reg-input" value={form.name} disabled />
               </div>
-              {/* Username */}
               <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Username
-                </label>
-                <br />
-                <input
-                  type="text"
-                  name="username"
-                  onChange={handleInputChange}
-                  value={form.username}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  placeholder="Enter your username"
-                />
+                <label className="reg-label">Email</label>
+                <input className="reg-input" value={form.email} disabled />
               </div>
-              {/* Linkedin Profile Link*/}
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">Username <span className="reg-label-required">* required</span></label>
+              <input className="reg-input" name="username" value={form.username} onChange={handleInput} placeholder="choose a unique username" />
+            </div>
+
+            <div className="reg-field-row">
               <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Linkedin Link
-                </label>
-                <br />
-                <input
-                  type="text"
-                  name="linkedinLink"
-                  value={form.linkedinLink}
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  placeholder="Enter your Linkedin link"
-                />
+                <label className="reg-label">LinkedIn <span className="reg-label-required">* one required</span></label>
+                <input className="reg-input" name="linkedinLink" value={form.linkedinLink} onChange={handleInput} placeholder="linkedin.com/in/yourname" />
               </div>
-              {/* Github Profile Link*/}
               <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Github Link
-                </label>
-                <br />
-                <input
-                  type="text"
-                  name="githubLink"
-                  value={form.githubLink}
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  placeholder="Enter your Github link"
-                />
+                <label className="reg-label">GitHub <span className="reg-label-required">* one required</span></label>
+                <input className="reg-input" name="githubLink" value={form.githubLink} onChange={handleInput} placeholder="github.com/yourname" />
               </div>
-              {/* Portfolio Link */}
-              <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Portfolio Link
-                </label>
-                <br />
-                <input
-                  type="text"
-                  name="portfolioLink"
-                  value={form.portfolioLink}
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                  }}
-                  placeholder="Enter your portfolio link"
-                />
-              </div>
-              {/* Skills Proficient At */}
-              <div>
-                <label className="mt-3" style={{ color: "#3BB4A1" }}>
-                  Skills Proficient At
-                </label>
-                <br />
-                <Form.Select
-                  aria-label="Default select example"
-                  value={skillsProficientAt}
-                  onChange={(e) => setSkillsProficientAt(e.target.value)}
-                >
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">Portfolio <span className="reg-label-optional">(optional)</span></label>
+              <input className="reg-input" name="portfolioLink" value={form.portfolioLink} onChange={handleInput} placeholder="https://yourportfolio.com" />
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">Skills I Can Teach <span className="reg-label-required">* at least 1</span></label>
+              <div className="reg-skill-row">
+                <select className="reg-select" value={skillProfInput} onChange={e => setSkillProfInput(e.target.value)}>
                   <option>Select some skill</option>
-                  {skills.map((skill, index) => (
-                    <option key={index} value={skill}>
-                      {skill}
-                    </option>
-                  ))}
-                </Form.Select>
-                {form.skillsProficientAt.length > 0 && (
-                  <div>
-                    {form.skillsProficientAt.map((skill, index) => (
-                      <Badge
-                        key={index}
-                        bg="secondary"
-                        className="ms-2 mt-2"
-                        style={{ cursor: "pointer" }}
-                        onClick={(event) => handleRemoveSkill(event, "skills_proficient_at")}
-                      >
-                        <div className="span d-flex p-1 fs-7 ">{skill} &#10005;</div>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <button className="btn btn-primary mt-3 ms-1" name="skill_proficient_at" onClick={handleAddSkill}>
-                  Add Skill
-                </button>
+                  {skills.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                </select>
+                <button className="reg-skill-add-btn" onClick={() => addSkill("prof")}>Add</button>
               </div>
-              {/* Skills to learn */}
-              <div>
-                <label style={{ color: "#3BB4A1", marginTop: "20px" }}>Skills To Learn</label>
-                <br />
-                <Form.Select
-                  aria-label="Default select example"
-                  value={skillsToLearn}
-                  onChange={(e) => setSkillsToLearn(e.target.value)}
-                >
-                  <option>Select some skill</option>
-                  {skills.map((skill, index) => (
-                    <option key={index} value={skill}>
-                      {skill}
-                    </option>
-                  ))}
-                </Form.Select>
-                {form.skillsToLearn.length > 0 && (
-                  <div>
-                    {form.skillsToLearn.map((skill, index) => (
-                      <Badge
-                        key={index}
-                        bg="secondary"
-                        className="ms-2 mt-2 "
-                        style={{ cursor: "pointer" }}
-                        onClick={(event) => handleRemoveSkill(event, "skills_to_learn")}
-                      >
-                        <div className="span d-flex p-1 fs-7 ">{skill} &#10005;</div>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-                <button className="btn btn-primary mt-3 ms-1" name="skill_to_learn" onClick={handleAddSkill}>
-                  Add Skill
-                </button>
-              </div>
-              <div className="row m-auto d-flex justify-content-center mt-3">
-                <button className="btn btn-warning" onClick={handleSaveRegistration} disabled={saveLoading}>
-                  {saveLoading ? <Spinner animation="border" variant="primary" /> : "Save"}
-                </button>
-                <button onClick={handleNext} className="mt-2 btn btn-primary">
-                  Next
-                </button>
-              </div>
-            </Tab>
-            <Tab eventKey="education" title="Education">
-              {form.education.map((edu, index) => (
-                <div className="border border-dark rounded-1 p-3 m-1" key={edu.id}>
-                  {index !== 0 && (
-                    <span className="w-100 d-flex justify-content-end">
-                      <button className="w-25" onClick={(e) => handleRemoveEducation(e, edu.id)}>
-                        cross
-                      </button>
+              {form.skillsProficientAt.length > 0 && (
+                <div className="reg-badges">
+                  {form.skillsProficientAt.map((s, i) => (
+                    <span key={i} className="reg-badge" onClick={() => removeSkill(s, "prof")}>
+                      {s} <span className="reg-badge-x">✕</span>
                     </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">Skills I Want to Learn <span className="reg-label-required">* at least 1</span></label>
+              <div className="reg-skill-row">
+                <select className="reg-select" value={skillLearnInput} onChange={e => setSkillLearnInput(e.target.value)}>
+                  <option>Select some skill</option>
+                  {skills.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                </select>
+                <button className="reg-skill-add-btn" onClick={() => addSkill("learn")}>Add</button>
+              </div>
+              {form.skillsToLearn.length > 0 && (
+                <div className="reg-badges">
+                  {form.skillsToLearn.map((s, i) => (
+                    <span key={i} className="reg-badge" onClick={() => removeSkill(s, "learn")}>
+                      {s} <span className="reg-badge-x">✕</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="reg-btn-row">
+              <button className="reg-btn reg-btn-secondary" onClick={saveReg} disabled={saveLoading}>
+                {saveLoading ? <Spinner animation="border" size="sm" /> : "Save"}
+              </button>
+              <button className="reg-btn reg-btn-primary" onClick={goNext}>
+                Next — Education →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 2: Education ── */}
+        {activeKey === "education" && (
+          <div className="reg-tab-content">
+            <div className="reg-step-header">
+              <div className="reg-step-number">02</div>
+              <div>
+                <div className="reg-step-title">Education</div>
+                <div className="reg-step-desc">Your academic background</div>
+              </div>
+            </div>
+
+            {form.education.map((edu, i) => (
+              <div key={edu.id} className="reg-card">
+                <div className="reg-card-header">
+                  <span className="reg-card-title">Education {i + 1}</span>
+                  {i > 0 && (
+                    <button className="reg-remove-btn" onClick={() => setForm(prev => ({ ...prev, education: prev.education.filter(e => e.id !== edu.id) }))}>
+                      Remove ✕
+                    </button>
                   )}
-                  <label style={{ color: "#3BB4A1" }}>Institution Name</label>
-                  <br />
-                  <input
-                    type="text"
-                    name="institution"
-                    value={edu.institution}
-                    onChange={(e) => handleEducationChange(e, index)}
-                    style={{
-                      borderRadius: "5px",
-                      border: "1px solid #3BB4A1",
-                      padding: "5px",
-                      width: "100%",
-                    }}
-                    placeholder="Enter your institution name"
-                  />
-                  <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                    Degree
-                  </label>
-                  <br />
-                  <input
-                    type="text"
-                    name="degree"
-                    value={edu.degree}
-                    onChange={(e) => handleEducationChange(e, index)}
-                    style={{
-                      borderRadius: "5px",
-                      border: "1px solid #3BB4A1",
-                      padding: "5px",
-                      width: "100%",
-                    }}
-                    placeholder="Enter your degree"
-                  />
-                  <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                    Grade/Percentage
-                  </label>
-                  <br />
-                  <input
-                    type="number"
-                    name="score"
-                    value={edu.score}
-                    onChange={(e) => handleEducationChange(e, index)}
-                    style={{
-                      borderRadius: "5px",
-                      border: "1px solid #3BB4A1",
-                      padding: "5px",
-                      width: "100%",
-                    }}
-                    placeholder="Enter your grade/percentage"
-                  />
-                  <div className="row w-100">
-                    <div className="col-md-6">
-                      <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                        Start Date
-                      </label>
-                      <br />
-                      <input
-                        type="date"
-                        name="startDate"
-                        value={edu.startDate ? new Date(edu.startDate).toISOString().split("T")[0] : ""}
-                        onChange={(e) => handleEducationChange(e, index)}
-                        style={{
-                          borderRadius: "5px",
-                          border: "1px solid #3BB4A1",
-                          padding: "5px",
-                          width: "100%",
-                        }}
-                      />
-                    </div>
-                    <div className="col-md-6">
-                      <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                        End Date
-                      </label>
-                      <br />
-                      <input
-                        type="date"
-                        name="endDate"
-                        value={edu.endDate ? new Date(edu.endDate).toISOString().split("T")[0] : ""}
-                        onChange={(e) => handleEducationChange(e, index)}
-                        style={{
-                          borderRadius: "5px",
-                          border: "1px solid #3BB4A1",
-                          padding: "5px",
-                          width: "100%",
-                        }}
-                      />
-                    </div>
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Institution Name</label>
+                  <input className="reg-input" name="institution" value={edu.institution} onChange={e => handleEduChange(e, i)} placeholder="University or school name" />
+                </div>
+                <div className="reg-field-row">
+                  <div>
+                    <label className="reg-label">Degree</label>
+                    <input className="reg-input" name="degree" value={edu.degree} onChange={e => handleEduChange(e, i)} placeholder="B.Tech, B.Sc, etc." />
                   </div>
-                  <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                    Description
-                  </label>
-                  <br />
-                  <input
-                    type="text"
-                    name="description"
-                    value={edu.description}
-                    onChange={(e) => handleEducationChange(e, index)}
-                    style={{
-                      borderRadius: "5px",
-                      border: "1px solid #3BB4A1",
-                      padding: "5px",
-                      width: "100%",
-                    }}
-                    placeholder="Enter your exp or achievements"
-                  />
+                  <div>
+                    <label className="reg-label">Grade / Percentage</label>
+                    <input className="reg-input" type="number" name="score" value={edu.score} onChange={e => handleEduChange(e, i)} placeholder="8.5 or 85%" />
+                  </div>
+                </div>
+                <div className="reg-field-row">
+                  <div>
+                    <label className="reg-label">Start Date</label>
+                    <input className="reg-input" type="date" name="startDate" value={edu.startDate ? new Date(edu.startDate).toISOString().split("T")[0] : ""} onChange={e => handleEduChange(e, i)} />
+                  </div>
+                  <div>
+                    <label className="reg-label">End Date</label>
+                    <input className="reg-input" type="date" name="endDate" value={edu.endDate ? new Date(edu.endDate).toISOString().split("T")[0] : ""} onChange={e => handleEduChange(e, i)} />
+                  </div>
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Description <span className="reg-label-optional">(optional)</span></label>
+                  <input className="reg-input" name="description" value={edu.description} onChange={e => handleEduChange(e, i)} placeholder="Achievements, activities..." />
+                </div>
+              </div>
+            ))}
+
+            <button className="reg-btn reg-btn-add" onClick={() => setForm(prev => ({ ...prev, education: [...prev.education, { id: uuidv4(), institution: "", degree: "", startDate: "", endDate: "", score: "", description: "" }] }))}>
+              + Add Another Education
+            </button>
+
+            <div className="reg-btn-row">
+              <button className="reg-btn reg-btn-secondary" onClick={saveEdu} disabled={saveLoading}>
+                {saveLoading ? <Spinner animation="border" size="sm" /> : "Save"}
+              </button>
+              <button className="reg-btn reg-btn-primary" onClick={goNext}>
+                Next — About You →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 3: Additional ── */}
+        {activeKey === "additional" && (
+          <div className="reg-tab-content">
+            <div className="reg-step-header">
+              <div className="reg-step-number">03</div>
+              <div>
+                <div className="reg-step-title">About You</div>
+                <div className="reg-step-desc">Bio and projects</div>
+              </div>
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">
+                Bio <span className="reg-label-required">* required, min 50 chars</span>
+              </label>
+              <textarea
+                className={`reg-textarea ${bioLen > 0 && bioLen < 50 ? "error" : ""}`}
+                name="bio"
+                value={form.bio}
+                onChange={handleInput}
+                placeholder="Tell others about yourself, what you know, and what you're looking to learn..."
+              />
+              <span className={`reg-char-count ${bioLen < 50 && bioLen > 0 ? "error" : bioLen > 450 ? "warn" : ""}`}>
+                {bioLen}/500
+                {bioLen > 0 && bioLen < 50 && ` — ${50 - bioLen} more needed`}
+                {bioLen === 0 && " — Bio is required"}
+              </span>
+            </div>
+
+            <label className="reg-label" style={{ marginBottom: 12, marginTop: 8 }}>
+              Projects <span className="reg-label-optional">(optional)</span>
+            </label>
+
+            {form.projects.map((project, i) => (
+              <div key={project.id} className="reg-card">
+                <div className="reg-card-header">
+                  <span className="reg-card-title">Project {i + 1}</span>
+                  <button className="reg-remove-btn" onClick={() => setForm(prev => ({ ...prev, projects: prev.projects.filter(p => p.id !== project.id) }))}>
+                    Remove ✕
+                  </button>
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Title</label>
+                  <input className="reg-input" name="title" value={project.title} onChange={e => handleProjChange(e, i)} placeholder="Project name" />
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Tech Stack</label>
+                  <div className="reg-skill-row">
+                    <select className="reg-select" value={techStack[i]} onChange={e => setTechStack(prev => prev.map((t, ti) => ti === i ? e.target.value : t))}>
+                      <option>Select some Tech Stack</option>
+                      {skills.map((s, si) => <option key={si} value={s}>{s}</option>)}
+                    </select>
+                    <button className="reg-skill-add-btn" onClick={() => {
+                      if (techStack[i] === "Select some Tech Stack") { toast.error("Select a tech stack"); return; }
+                      if (form.projects[i].techStack.includes(techStack[i])) { toast.error("Already added"); return; }
+                      setForm(prev => ({ ...prev, projects: prev.projects.map((p, pi) => pi === i ? { ...p, techStack: [...p.techStack, techStack[i]] } : p) }));
+                    }}>Add</button>
+                  </div>
+                  {project.techStack.length > 0 && (
+                    <div className="reg-badges">
+                      {project.techStack.map((s, si) => (
+                        <span key={si} className="reg-badge" onClick={() => setForm(prev => ({ ...prev, projects: prev.projects.map((p, pi) => pi === i ? { ...p, techStack: p.techStack.filter(t => t !== s) } : p) }))}>
+                          {s} <span className="reg-badge-x">✕</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="reg-field-row">
+                  <div>
+                    <label className="reg-label">Start Date</label>
+                    <input className="reg-input" type="date" name="startDate" value={project.startDate ? new Date(project.startDate).toISOString().split("T")[0] : ""} onChange={e => handleProjChange(e, i)} />
+                  </div>
+                  <div>
+                    <label className="reg-label">End Date</label>
+                    <input className="reg-input" type="date" name="endDate" value={project.endDate ? new Date(project.endDate).toISOString().split("T")[0] : ""} onChange={e => handleProjChange(e, i)} />
+                  </div>
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Project Link</label>
+                  <input className="reg-input" name="projectLink" value={project.projectLink} onChange={e => handleProjChange(e, i)} placeholder="https://github.com/..." />
+                </div>
+                <div className="reg-field">
+                  <label className="reg-label">Description</label>
+                  <input className="reg-input" name="description" value={project.description} onChange={e => handleProjChange(e, i)} placeholder="What does this project do?" />
+                </div>
+              </div>
+            ))}
+
+            <button className="reg-btn reg-btn-add" onClick={() => {
+              setTechStack(prev => [...prev, "Select some Tech Stack"]);
+              setForm(prev => ({ ...prev, projects: [...prev.projects, { id: uuidv4(), title: "", techStack: [], startDate: "", endDate: "", projectLink: "", description: "" }] }));
+            }}>+ Add Project</button>
+
+            <div className="reg-btn-row">
+              <button className="reg-btn reg-btn-secondary" onClick={saveAdd} disabled={saveLoading}>
+                {saveLoading ? <Spinner animation="border" size="sm" /> : "Save"}
+              </button>
+              <button className="reg-btn reg-btn-primary" onClick={goNext}>
+                Next — Learning Path →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 4: Learning Path ── */}
+        {activeKey === "learningpath" && (
+          <div className="reg-tab-content">
+            <div className="reg-step-header">
+              <div className="reg-step-number">04</div>
+              <div>
+                <div className="reg-step-title">Learning Path</div>
+                <div className="reg-step-desc">AI generates your personal roadmap</div>
+              </div>
+            </div>
+            <LearningPathTab onNext={goNext} />
+          </div>
+        )}
+
+        {/* ── TAB 5: Preview ── */}
+        {activeKey === "preview" && (
+          <div className="reg-tab-content">
+            <div className="reg-step-header">
+              <div className="reg-step-number">05</div>
+              <div>
+                <div className="reg-step-title">Confirm Details</div>
+                <div className="reg-step-desc">Review everything before submitting</div>
+              </div>
+            </div>
+
+            <div className="previewForm">
+              {[
+                ["Name",               form.name],
+                ["Email",              form.email],
+                ["Username",           form.username],
+                ["LinkedIn",           form.linkedinLink],
+                ["GitHub",             form.githubLink],
+                ["Portfolio",          form.portfolioLink],
+                ["Skills I Can Teach", form.skillsProficientAt.join(", ")],
+                ["Skills to Learn",    form.skillsToLearn.join(", ")],
+                ["Bio",                form.bio],
+              ].map(([label, value]) => (
+                <div key={label} className="preview-row">
+                  <span className="preview-label">{label}</span>
+                  <span className="preview-value">{value || "—"}</span>
                 </div>
               ))}
-              <div className="row my-2 d-flex justify-content-center">
-                <button
-                  className="btn btn-primary w-50"
-                  onClick={() => {
-                    setForm((prevState) => ({
-                      ...prevState,
-                      education: [
-                        ...prevState.education,
-                        {
-                          id: uuidv4(),
-                          institution: "",
-                          degree: "",
-                          startDate: "",
-                          endDate: "",
-                          score: "",
-                          description: "",
-                        },
-                      ],
-                    }));
-                  }}
-                >
-                  Add Education
-                </button>
-              </div>
-              <div className="row m-auto d-flex justify-content-center mt-3">
-                <button className="btn btn-warning" onClick={handleSaveEducation} disabled={saveLoading}>
-                  {saveLoading ? <Spinner animation="border" variant="primary" /> : "Save"}
-                </button>
-                <button onClick={handleNext} className="mt-2 btn btn-primary">
-                  Next
-                </button>
-              </div>
-            </Tab>
-            <Tab eventKey="longer-tab" title="Additional">
-              <div>
-                <label style={{ color: "#3BB4A1", marginTop: "20px" }}>Bio (Max 500 Character)</label>
-                <br />
-                <textarea
-                  name="bio"
-                  value={form.bio}
-                  onChange={handleInputChange}
-                  style={{
-                    borderRadius: "5px",
-                    border: "1px solid #3BB4A1",
-                    padding: "5px",
-                    width: "100%",
-                    marginBottom: "10px",
-                  }}
-                  placeholder="Enter your bio"
-                ></textarea>
-              </div>
-              <div className="">
-                <label style={{ color: "#3BB4A1" }}>Projects</label>
+            </div>
 
-                {form.projects.map((project, index) => (
-                  <div className="border border-dark rounded-1 p-3 m-1" key={project.id}>
-                    <span className="w-100 d-flex justify-content-end">
-                      <button
-                        className="w-25"
-                        onClick={() => {
-                          setForm((prevState) => ({
-                            ...prevState,
-                            projects: prevState.projects.filter((item) => item.id !== project.id),
-                          }));
-                        }}
-                      >
-                        cross
-                      </button>
-                    </span>
-                    <label style={{ color: "#3BB4A1" }}>Title</label>
-                    <br />
-                    <input
-                      type="text"
-                      name="title"
-                      value={project.title}
-                      onChange={(e) => handleAdditionalChange(e, index)}
-                      style={{
-                        borderRadius: "5px",
-                        border: "1px solid #3BB4A1",
-                        padding: "5px",
-                        width: "100%",
-                      }}
-                      placeholder="Enter your project title"
-                    />
-                    <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                      Tech Stack
-                    </label>
-                    <br />
-                    <Form.Select
-                      aria-label="Default select example"
-                      value={techStack[index]}
-                      onChange={(e) => {
-                        setTechStack((prevState) => prevState.map((item, i) => (i === index ? e.target.value : item)));
-                      }}
-                    >
-                      <option>Select some Tech Stack</option>
-                      {skills.map((skill, index) => (
-                        <option key={index} value={skill}>
-                          {skill}
-                        </option>
-                      ))}
-                    </Form.Select>
-                    {techStack[index].length > 0 && (
-                      <div>
-                        {form.projects[index].techStack.map((skill, i) => (
-                          <Badge
-                            key={i}
-                            bg="secondary"
-                            className="ms-2 mt-2"
-                            style={{ cursor: "pointer" }}
-                            onClick={(e) => {
-                              setForm((prevState) => ({
-                                ...prevState,
-                                projects: prevState.projects.map((item, i) =>
-                                  i === index
-                                    ? { ...item, techStack: item.techStack.filter((item) => item !== skill) }
-                                    : item
-                                ),
-                              }));
-                            }}
-                          >
-                            <div className="span d-flex p-1 fs-7 ">{skill} &#10005;</div>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      className="btn btn-primary mt-3 ms-1"
-                      name="tech_stack"
-                      onClick={(e) => {
-                        if (techStack[index] === "Select some Tech Stack") {
-                          toast.error("Select a tech stack to add");
-                          return;
-                        }
-                        if (form.projects[index].techStack.includes(techStack[index])) {
-                          toast.error("Tech Stack already added");
-                          return;
-                        }
-                        setForm((prevState) => ({
-                          ...prevState,
-                          projects: prevState.projects.map((item, i) =>
-                            i === index ? { ...item, techStack: [...item.techStack, techStack[index]] } : item
-                          ),
-                        }));
-                      }}
-                    >
-                      Add Tech Stack
-                    </button>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                          Start Date
-                        </label>
-                        <br />
-                        <input
-                          type="date"
-                          name="startDate"
-                          value={project.startDate ? new Date(project.startDate).toISOString().split("T")[0] : ""}
-                          onChange={(e) => handleAdditionalChange(e, index)}
-                          style={{
-                            borderRadius: "5px",
-                            border: "1px solid #3BB4A1",
-                            padding: "5px",
-                            width: "100%",
-                          }}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                          End Date
-                        </label>
-                        <br />
-                        <input
-                          type="date"
-                          name="endDate"
-                          value={project.endDate ? new Date(project.endDate).toISOString().split("T")[0] : ""}
-                          onChange={(e) => handleAdditionalChange(e, index)}
-                          style={{
-                            borderRadius: "5px",
-                            border: "1px solid #3BB4A1",
-                            padding: "5px",
-                            width: "100%",
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                      Project Link
-                    </label>
-                    <br />
-                    <input
-                      type="text"
-                      name="projectLink"
-                      value={project.projectLink}
-                      onChange={(e) => handleAdditionalChange(e, index)}
-                      style={{
-                        borderRadius: "5px",
-                        border: "1px solid #3BB4A1",
-                        padding: "5px",
-                        width: "100%",
-                      }}
-                      placeholder="Enter your project link"
-                    />
+            <div className="reg-btn-row" style={{ marginTop: 32 }}>
+              <button className="reg-btn reg-btn-primary" onClick={handleSubmit} disabled={saveLoading}>
+                {saveLoading ? <><Spinner animation="border" size="sm" /> Submitting…</> : "Submit Registration →"}
+              </button>
+            </div>
+          </div>
+        )}
 
-                    <label className="mt-2" style={{ color: "#3BB4A1" }}>
-                      Description
-                    </label>
-                    <br />
-                    <input
-                      type="text"
-                      name="description"
-                      value={project.description}
-                      onChange={(e) => handleAdditionalChange(e, index)}
-                      style={{
-                        borderRadius: "5px",
-                        border: "1px solid #3BB4A1",
-                        padding: "5px",
-                        width: "100%",
-                      }}
-                      placeholder="Enter your project description"
-                    />
-                  </div>
-                ))}
-
-                <div className="row my-2 d-flex justify-content-center">
-                  <button
-                    className="btn btn-primary w-50"
-                    onClick={() => {
-                      setTechStack((prevState) => {
-                        return [...prevState, "Select some Tech Stack"];
-                      });
-                      setForm((prevState) => ({
-                        ...prevState,
-                        projects: [
-                          ...prevState.projects,
-                          {
-                            id: uuidv4(),
-                            title: "",
-                            techStack: [],
-                            startDate: "",
-                            endDate: "",
-                            projectLink: "",
-                            description: "",
-                          },
-                        ],
-                      }));
-                    }}
-                  >
-                    Add Project
-                  </button>
-                </div>
-              </div>
-              <div className="row m-auto d-flex justify-content-center mt-3">
-                <button className="btn btn-warning" onClick={handleSaveAdditional} disabled={saveLoading}>
-                  {saveLoading ? <Spinner animation="border" variant="primary" /> : "Save"}
-                </button>
-                <button onClick={handleNext} className="mt-2 btn btn-primary">
-                  Next
-                </button>
-              </div>
-            </Tab>
-            <Tab eventKey="Preview" title="Confirm Details">
-              <div>
-                <h3 style={{ color: "#3BB4A1", marginBottom: "20px" }} className="link w-100 text-center">
-                  Preview of the Form
-                </h3>
-                <div className="previewForm" style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d", marginBottom: "20px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link m-sm-0"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Name:</span>
-                    <span style={{ flex: 2 }}>{form.name || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Email ID:</span>
-                    <span style={{ flex: 2 }}>{form.email || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Username:</span>
-                    <span style={{ flex: 2 }}>{form.username || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Portfolio Link:</span>
-                    <span style={{ flex: 2 }}>{form.portfolioLink || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Github Link:</span>
-                    <span style={{ flex: 2 }}>{form.githubLink || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      flexWrap: "wrap",
-                      marginBottom: "10px",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Linkedin Link:</span>
-                    <span
-                      style={{
-                        width: "70vw",
-                        alignItems: "center",
-                        flex: 2,
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                        textOverflow: "ellipsis",
-                        marginBottom: "1.5rem",
-                      }}
-                    >
-                      {form.linkedinLink || "Yet to be filled"}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Skills Proficient At:</span>
-                    <span style={{ flex: 2 }}>{form.skillsProficientAt.join(", ") || "Yet to be filled"}</span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Skills To Learn:</span>
-                    <span style={{ flex: 2 }}>{form.skillsToLearn.join(", ") || "Yet to be filled"}</span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      width: "70vw",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "1.5rem",
-                    }}
-                    className="link"
-                  >
-                    <span style={{ flex: 1, fontWeight: "bold", color: "#3BB4A1" }}>Bio:</span>
-                    <span style={{ flex: 2 }}>{form.bio || "Yet to be filled"}</span>
-                  </div>
-                </div>
-                <div className="row">
-                  <button
-                    onClick={handleSubmit}
-                    style={{
-                      backgroundColor: "#3BB4A1",
-                      color: "white",
-                      padding: "10px 20px",
-                      border: "none",
-                      borderRadius: "5px",
-                      cursor: "pointer",
-                    }}
-                    className="w-50 d-flex m-auto text-center align-content-center justify-content-center"
-                  >
-                    {saveLoading ? <Spinner animation="border" variant="primary" /> : "Submit"}
-                  </button>
-                </div>
-              </div>
-            </Tab>
-          </Tabs>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

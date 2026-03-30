@@ -1,127 +1,215 @@
 :root {
-  --cyan: #3bb4a1;
-  --light-grey: #6d6e70;
-  --grey: #2d2d2d;
-  --yellow: #fbf1a4;
-  --dark-cyan: #013e38;
-  --red: #f56664;
-  --basefont: "Oswald", sans-serif;
-  --secfont: "Montserrat", sans-serif;
+  --font-display: "Georgia", serif;
+  --font-body: "Montserrat", sans-serif;
 }
 
-h3 {
-  font-family: var(--secfont);
-  margin: 10px 0;
-}
-
-h6 {
-  font-family: var(--secfont);
-  font-size: 1rem !important;
-  margin: 5px 0;
-  text-transform: uppercase;
-}
-
-p {
-  font-family: var(--secfont);
-  font-size: 14px;
-  line-height: 21px;
-}
-
+/* ───────── CARD WRAPPER ───────── */
 .card-container {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  font-family: var(--secfont);
-  background-color: #00000050;
-  border-radius: 25px;
-  box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.35);
-  color: #b3c2cd;
+  font-family: var(--font-body);
+  background: #0b0b0b;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 22px;
+  overflow: hidden;
   position: relative;
-  width: 300px;
-  min-width: 300px;
-  height: 450px;
-  max-width: 100%;
+  width: 280px;
+  min-width: 280px;
+
+
+  transition: all 0.25s ease;
+}
+
+.card-container:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255,255,255,0.25);
+  transform:translateY(-8px) scale(1.02);
+  box-shadow:
+  0 25px 60px rgba(0,0,0,0.95),
+  0 0 0 1px rgba(255,255,255,0.06) inset;
+   
+}
+
+/* ───────── TOP BANNER ───────── */
+.card-banner {
+  width: 100%;
+  height: 70px;
+  background: #111;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+}
+
+.card-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+/* ───────── PROFILE IMAGE ───────── */
+.img-container {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+
+  border: 3px solid #0b0b0b;
+  outline:2px solid #ffffff;
+
+  position: absolute;
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  background: #111;
+  transition: outline-color 0.2s;
+}
+
+.card-container:hover .img-container {
+  outline:2px solid #ffffff;
+}
+
+/* ───────── CARD BODY ───────── */
+.card-body-inner {
+  padding: 52px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  margin: 3rem;
+}
+
+/* NAME */
+.card-container h3 {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+/* HANDLE */
+.card-handle {
+  font-size: 0.75rem;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+/* RATING */
+.card-container h6 {
+  font-size: 0.7rem !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #777;
+  margin-bottom: 10px;
+}
+
+.card-rating-value {
+  color: #ffffff;
+}
+
+/* BIO */
+.card-container p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #8a8a8a;
+  margin-bottom: 16px;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.card-container img {
-  border: 1px solid #fbf1a4;
-  border-radius: 50%;
-  padding: 7px;
-  height: 100px;
-  width: 100px;
-  margin: 1rem;
-}
-
-.prof-buttons {
-  display: flex;
-  justify-content: space-around;
-}
-
-button.primary {
-  margin: 1rem;
-  background-color: #3bb4a1;
-  border: 1px solid #3bb4a1;
-  border-radius: 3px;
-  color: #fff;
-  font-family: Montserrat, sans-serif;
-  font-weight: 500;
-  padding: 0.4rem;
-  transition: 0.3s ease-in-out;
-}
-
-button.primary.ghost {
-  margin: 1rem;
-  background-color: transparent;
-  color: #3bb4a1;
-  transition: 0.3s ease-in-out;
-}
-
-button.primary:hover {
-  background-color: #fff;
-  color: #3bb4a1;
-}
-
-button.primary.ghost:hover {
-  background-color: #ffffff27;
-}
-
-.profskills {
-  background-color: rgba(48, 88, 100, 0.284);
-  padding-left: 1rem;
-  padding-right: 1rem;
-  padding-top: 0.3rem;
-  text-align: left;
-  margin-top: 1rem;
-  height: 15vh;
+/* DIVIDER */
+.card-divider {
   width: 100%;
-  bottom: 0;
-  overflow-y: auto;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin-bottom: 16px;
 }
 
+/* ───────── BUTTON ───────── */
+.prof-buttons {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+button.primary{
+  width:100%;
+  padding:11px;
+
+  border-radius:10px;
+  border:1px solid #ffffff;
+
+  background:transparent;
+  color:#ffffff;
+
+  font-size:0.75rem;
+  font-weight:600;
+
+  transition:all 0.25s ease;
+}
+
+button.primary:hover{
+  background:#ffffff;
+  color:#000;
+  box-shadow:0 0 12px rgba(255,255,255,0.3);
+}
+/* ───────── SKILLS FOOTER ───────── */
+.profskills{
+  background:linear-gradient(
+      to bottom,
+      #0b0b0b,
+      #0f1c1c
+  );
+
+  border-top:1px solid rgba(255,255,255,0.06);
+  padding:16px;
+}
+
+/* SKILLS TITLE */
+.profskills h6 {
+  font-size: 0.65rem !important;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 10px;
+}
+
+/* SKILL CONTAINER */
 .profskill-boxes {
-  margin: 1rem;
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
-.profskill-box {
-  text-align: center;
-  background-color: #809c5c;
-  color: white;
-  padding: 0.5rem;
-  margin-right: 1rem;
-  margin-top: 1rem;
-  border-radius: 5px;
-  min-width: 4rem;
+/* SKILL TAG */
+.profskill-box{
+  background:#111;
+  border:1px solid rgba(255,255,255,0.2);
 }
 
-@media (max-width: 768px) {
+.profskill-box .skill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.profskill-box:hover {
+  border-color: rgba(255,255,255,0.35);
+}
+
+/* SKILL TEXT */
+.profskill-box .skill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #bfbfbf;
+}
+
+/* ───────── RESPONSIVE ───────── */
+@media (max-width:768px) {
   .card-container {
-    width: 50vw;
-    height: 50vh;
+    width: 100%;
   }
 }

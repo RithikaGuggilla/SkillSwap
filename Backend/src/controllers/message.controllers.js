@@ -66,10 +66,29 @@ export const sendMessage = asyncHandler(async (req, res) => {
 export const getMessages = asyncHandler(async (req, res) => {
   console.log("\n******** Inside getMessages Controller function ********");
 
-  const chatId = req.params.chatId;
-  // console.log("Chat ID: ", chatId);
-
-  const messages = await Message.find({ chatId: chatId }).populate("sender", "username name email picture chatId");
-
+  const { chatId } = req.params;
+ 
+  // ── Mark all messages in this chat as read by current user ──
+  await Message.updateMany(
+    {
+      chatId: chatId,
+      sender: { $ne: req.user._id },        // not my own messages
+      readBy: { $nin: [req.user._id] },      // not already marked read
+    },
+    {
+      $addToSet: { readBy: req.user._id },   // add me to readBy
+    }
+  );
+ 
+  // Then fetch messages as normal
+  const messages = await Message.find({ chatId })
+    .populate("sender", "name username picture")
+    .sort({ createdAt: 1 });
+ 
+  if (!messages) {
+    throw new ApiError(500, "Error fetching messages");
+  }
+ 
   return res.status(200).json(new ApiResponse(200, messages, "Messages fetched successfully"));
 });
+ 

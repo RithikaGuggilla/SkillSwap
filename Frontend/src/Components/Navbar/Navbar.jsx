@@ -1,240 +1,492 @@
-import React, { useEffect } from "react";
+
+
+import React, { useEffect, useState, useRef } from "react";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Offcanvas from "react-bootstrap/Offcanvas";
 import { useUser } from "../../util/UserContext";
 import { Dropdown } from "react-bootstrap";
-import { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { ChevronDown, Bell, User, Settings, LogOut, CheckCheck } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
-const UserProfileDropdown = () => {
-  const { user, setUser } = useUser();
-  const navigate = useNavigate();
+/* ── Notification dropdown ─────────────────────────────────────── */
+const NotificationDropdown = ({ unreadCount, onCountChange }) => {
+  const [open, setOpen]               = useState(false);
+  const [notifications, setNotifs]    = useState([]);
+  const [loading, setLoading]         = useState(false);
+  const dropRef                       = useRef(null);
 
-  const handleLogout = async () => {
-    // Perform logout logic
-    localStorage.removeItem("userInfo");
-    setUser(null);
+  useEffect(() => {
+    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const fetchNotifs = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get("/auth/logout");
-      window.location.href = "http://localhost:5173/login";
-    } catch (error) {
-      console.log(error);
-      if (error?.response?.data?.message) {
-        console.error(error.response.data.message);
-      }
-    }
+      const { data } = await axios.get("/notifications", { withCredentials: true });
+      setNotifs(data.data.notifications || []);
+      onCountChange(data.data.unreadCount || 0);
+    } catch {}
+    finally { setLoading(false); }
   };
 
-  const CustomToggle = React.forwardRef(({ children, onClick }, ref) => (
-    <div
-      href=""
-      ref={ref}
-      onClick={(e) => {
-        onClick(e);
-      }}
-      style={{ display: "flex", alignItems: "center", cursor: "pointer" }}
-    >
-      <div
-        style={{
-          width: "32px",
-          height: "32px",
-          borderRadius: "50%",
-          overflow: "hidden",
-          marginRight: "10px",
-        }}
-      >
-        <img
-          src={user?.picture} // Replace with your image URL
-          alt="User Avatar"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+  const handleOpen = () => {
+    setOpen(v => !v);
+    if (!open) fetchNotifs();
+  };
+
+  const markAllRead = async () => {
+    await axios.put("/notifications/read-all", {}, { withCredentials: true });
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+    onCountChange(0);
+  };
+
+  const markRead = async (id) => {
+    await axios.put(`/notifications/${id}/read`, {}, { withCredentials: true });
+    setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+    onCountChange(prev => Math.max(0, prev - 1));
+  };
+
+  const typeIcon = (type) => {
+    if (type === "request_received")  return "📨";
+    if (type === "request_accepted")  return "🤝";
+    if (type === "session_scheduled") return "📅";
+    if (type === "session_reminder")  return "⏰";
+    return "🔔";
+  };
+
+  return (
+    <div ref={dropRef} style={{ position: "relative" }}>
+      {open && (
+        <div style={s.panel}>
+          <div style={s.panelHead}>
+            <span style={s.panelTitle}>Notifications</span>
+            {notifications.some(n => !n.read) && (
+              <button style={s.markAllBtn} onClick={markAllRead}>
+                <CheckCheck size={13} /> Mark all read
+              </button>
+            )}
+          </div>
+          <div style={s.notifList}>
+            {loading ? (
+              <div style={s.empty}>Loading…</div>
+            ) : notifications.length === 0 ? (
+              <div style={s.empty}>
+                <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🔔</div>
+                No notifications yet
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div key={n._id} style={s.notifItem(n.read)} onClick={() => { markRead(n._id); }}>
+                  <div style={s.notifIcon}>{typeIcon(n.type)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={s.notifTitle}>{n.title}</div>
+                    <div style={s.notifMsg}>{n.message}</div>
+                    <div style={s.notifTime}>
+                      {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                    </div>
+                  </div>
+                  {!n.read && <div style={s.unreadDot} />}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Profile dropdown ─────────────────────────────────────────── */
+const UserProfileDropdown = ({ unreadCount, onCountChange }) => {
+  const { user, setUser } = useUser();
+  const navigate          = useNavigate();
+  const [notifOpen, setNotifOpen]           = useState(false);
+  const [notifications, setNotifs]          = useState([]);
+  const [notifsLoading, setNotifsLoading]   = useState(false);
+  const dropRef                             = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setNotifOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleLogout = async () => {
+    localStorage.removeItem("userInfo");
+    setUser(null);
+    try { await axios.get("/auth/logout"); window.location.href = "http://localhost:5173/login"; }
+    catch {}
+  };
+
+  const fetchNotifs = async () => {
+    setNotifsLoading(true);
+    try {
+      const { data } = await axios.get("/notifications", { withCredentials: true });
+      setNotifs(data.data.notifications || []);
+      onCountChange(data.data.unreadCount || 0);
+    } catch {}
+    finally { setNotifsLoading(false); }
+  };
+
+  const handleDropdownOpen = async () => {
+    await markAllReadSilent();
+  };
+
+  const markAllReadSilent = async () => {
+    try {
+      await axios.put("/notifications/read-all", {}, { withCredentials: true });
+      setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+      onCountChange(0);
+    } catch {}
+  };
+
+  const markAllRead = async (e) => {
+    e.stopPropagation();
+    await axios.put("/notifications/read-all", {}, { withCredentials: true });
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+    onCountChange(0);
+  };
+
+  const markOneRead = async (id) => {
+    await axios.put(`/notifications/${id}/read`, {}, { withCredentials: true });
+    setNotifs(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+    onCountChange(c => Math.max(0, c - 1));
+  };
+
+  const typeIcon = (type) => {
+    const map = { request_received: "📨", request_accepted: "🤝", session_scheduled: "📅", session_reminder: "⏰" };
+    return map[type] || "🔔";
+  };
+
+  const CustomToggle = React.forwardRef(({ onClick }, ref) => (
+    <div ref={ref} onClick={(e) => { onClick(e); if (!notifOpen) { fetchNotifs(); handleDropdownOpen(); } }} style={s.avatarWrap}>
+      <div style={s.avatar}>
+        <img src={user?.picture} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </div>
-      {children}
-      &#x25bc;
+      {unreadCount > 0 && (
+        <div style={s.avatarBadge}>{unreadCount > 9 ? "9+" : unreadCount}</div>
+      )}
+      <ChevronDown size={14} color="#aaa" />
     </div>
   ));
 
-  const CustomMenu = React.forwardRef(({ children, style, className, "aria-labelledby": labeledBy }, ref) => {
-    const [value, setValue] = useState("");
+  const CustomMenu = React.forwardRef(({ style, className, "aria-labelledby": labeledBy }, ref) => (
+    <div ref={ref} style={{ ...style, ...s.menu, right: 0, left: "auto" }} className={className} aria-labelledby={labeledBy}>
+      <ul className="list-unstyled" style={{ margin: 0 }}>
 
-    return (
-      <div ref={ref} style={style} className={className} aria-labelledby={labeledBy}>
-        <ul className="list-unstyled">
-          {React.Children.toArray(children).filter(
-            (child) => !value || child.props.children.toLowerCase().startsWith(value)
-          )}
-        </ul>
-      </div>
-    );
-  });
+        <Dropdown.Item onClick={() => navigate(`/profile/${user?.username}`)} state={{ from: "/dashboard" }} style={s.menuItem}>
+          <User size={15} color="#555" />  Profile
+        </Dropdown.Item>
+
+        <div style={s.menuDivider} />
+        <div style={s.notifSection}>
+          <div style={s.notifSectionHead}>
+            <span style={s.notifSectionTitle}>
+              🔔 Notifications {unreadCount > 0 && <span style={s.notifCount}>{unreadCount}</span>}
+            </span>
+            {notifications.some(n => !n.read) && (
+              <button style={s.markAllBtn} onClick={markAllRead}>
+                <CheckCheck size={11} /> all read
+              </button>
+            )}
+          </div>
+
+          <div style={s.notifScrollList}>
+            {notifsLoading ? (
+              <div style={s.notifEmpty}>Loading…</div>
+            ) : notifications.length === 0 ? (
+              <div style={s.notifEmpty}>No notifications yet</div>
+            ) : (
+              notifications.slice(0, 5).map(n => (
+                <div key={n._id} style={s.notifRow(n.read)} onClick={() => markOneRead(n._id)}>
+                  <span style={{ fontSize: "0.85rem", flexShrink: 0 }}>{typeIcon(n.type)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={s.notifRowTitle}>{n.title}</div>
+                    <div style={s.notifRowMsg}>{n.message}</div>
+                  </div>
+                  {!n.read && <div style={s.smallDot} />}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div style={s.menuDivider} />
+
+        <Dropdown.Item onClick={() => navigate("/settings")} style={s.menuItem}>
+          <Settings size={15} color="#555" /> Settings
+        </Dropdown.Item>
+
+        <div style={s.menuDivider} />
+
+        <Dropdown.Item onClick={handleLogout} style={{ ...s.menuItem, color: "#dc2626" }}>
+          <LogOut size={15} color="#dc2626" /> Logout
+        </Dropdown.Item>
+
+      </ul>
+    </div>
+  ));
 
   return (
     <Dropdown>
-      <Dropdown.Toggle as={CustomToggle} id="dropdown-custom-components" />
-
-      <Dropdown.Menu as={CustomMenu}>
-        <Dropdown.Item
-          onClick={() => {
-            console.log(user.username);
-            navigate(`/profile/${user.username}`);
-          }}
-        >
-          Profile
-        </Dropdown.Item>
-        <Dropdown.Item onClick={handleLogout}>Logout</Dropdown.Item>
-      </Dropdown.Menu>
+      <Dropdown.Toggle as={CustomToggle} id="dropdown-profile" />
+      <Dropdown.Menu as={CustomMenu} align="end" style={{ right: 0, left: "auto" }} />
     </Dropdown>
   );
 };
 
+/* ── Header ──────────────────────────────────────────────────── */
 const Header = () => {
-  const [navUser, setNavUser] = useState(null);
-  const { user } = useUser();
-  const [discover, setDiscover] = useState(false);
+  const [navUser, setNavUser]         = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { user }                      = useUser();
+  const location                      = useLocation();
 
   useEffect(() => {
     setNavUser(JSON.parse(localStorage.getItem("userInfo")));
-    // console.log("navUser", navUser);
   }, [user]);
 
   useEffect(() => {
-    const handleUrlChange = () => {
-      // Your logic to run when there is a change in the URL
-      console.log("URL has changed:", window.location.href);
+    if (!navUser) return;
+    const fetch = async () => {
+      try {
+        const { data } = await axios.get("/notifications", { withCredentials: true });
+        setUnreadCount(data.data.unreadCount || 0);
+      } catch {}
     };
-    window.addEventListener("popstate", handleUrlChange);
+    fetch();
+    const interval = setInterval(fetch, 30000);
+    return () => clearInterval(interval);
+  }, [navUser]);
 
-    const temp = window.location.href.split("/");
-    const url = temp.pop();
-    if (url.startsWith("discover")) {
-      setDiscover(true);
-    } else {
-      setDiscover(false);
-    }
-    return () => {
-      window.removeEventListener("popstate", handleUrlChange);
-    };
-  }, [window.location.href]);
+  const isActive = (path) => location.pathname === path;
+
+  const navLinkStyle = (path) => ({
+    fontFamily: "Montserrat",
+    color: isActive(path) ? "#ffffff" : "#888888",
+    marginLeft: "18px",
+    fontSize: "0.88rem",
+    fontWeight: isActive(path) ? "600" : "400",
+    transition: "color 0.2s",
+    position: "relative",
+    paddingBottom: "4px",
+    letterSpacing: "0.01em",
+  });
+
+  /* Renders a nav link with a tiny dot underline when active */
+  const NavItem = ({ to, label }) => (
+    <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", marginLeft: "18px" }}>
+      <Nav.Link
+        as={Link}
+        to={to}
+        style={{
+          fontFamily: "Montserrat",
+          color: isActive(to) ? "#ffffff" : "#888888",
+          fontSize: "0.88rem",
+          fontWeight: isActive(to) ? "600" : "400",
+          transition: "color 0.2s",
+          padding: "0",
+          margin: "0",
+          letterSpacing: "0.01em",
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = "#fff"}
+        onMouseLeave={e => e.currentTarget.style.color = isActive(to) ? "#fff" : "#888"}
+      >
+        {label}
+      </Nav.Link>
+      {/* Active dot indicator */}
+      <div style={{
+        width: isActive(to) ? "18px" : "0px",
+        height: "2px",
+        borderRadius: "2px",
+        background: "#ffffff",
+        marginTop: "4px",
+        transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+        opacity: isActive(to) ? 1 : 0,
+      }} />
+    </div>
+  );
 
   return (
-    <>
-      <Navbar key="md" expand="md" className="bg-body-primary" style={{ backgroundColor: "#3BB4A1", zIndex: 998 }}>
-        <Container fluid>
-          <Navbar.Brand href="/" style={{ fontFamily: "Josefin Sans, sans-serif", color: "#2d2d2d", fontWeight: 500 }}>
-            SKILL SWAP
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls={`offcanvasNavbar-expand-md`} />
-          <Navbar.Offcanvas
-            id={`offcanvasNavbar-expand-md`}
-            aria-labelledby={`offcanvasNavbarLabel-expand-md`}
-            placement="end"
-          >
-            <Offcanvas.Header closeButton>
-              <Offcanvas.Title
-                id={`offcanvasNavbarLabel-expand-md`}
-                style={{ fontFamily: "Josefin Sans, sans-serif", color: "#028477" }}
-              >
-                SKILL SWAP
-              </Offcanvas.Title>
-            </Offcanvas.Header>
-            <Offcanvas.Body>
-              <Nav className="justify-content-end flex-grow-1 pe-3">
-                <Nav.Link as={Link} to="/" style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}>
-                  Home
-                </Nav.Link>
-                {navUser !== null ? (
-                  <>
-                    <Nav.Link
-                      as={Link}
-                      to="/discover"
-                      style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}
-                    >
-                      Discover
-                    </Nav.Link>
-                    <Nav.Link as={Link} to="/chats" style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}>
-                      Your Chats
-                    </Nav.Link>
-                    {/* Paakhi discover page ke links yeha dalde please */}
-                    {discover && (
-                      <>
-                        <Nav.Link
-                          href="#for-you"
-                          style={{
-                            fontFamily: "Montserrat, sans-serif",
-                            color: "#f56664",
-                            fontSize: "1.2rem",
-                            marginTop: "2rem",
-                          }}
-                          className="d-md-none"
-                        >
-                          For You
-                        </Nav.Link>
-                        <Nav.Link
-                          href="#popular"
-                          style={{ fontFamily: "Montserrat, sans-serif", color: "#3bb4a1", fontSize: "1.2rem" }}
-                          className="d-md-none"
-                        >
-                          Popular
-                        </Nav.Link>
-                        <Nav.Link
-                          href="#web-development"
-                          style={{ fontFamily: "Montserrat, sans-serif", color: "#013e38", marginLeft: "1.5rem" }}
-                          className="d-md-none"
-                        >
-                          Web Development
-                        </Nav.Link>
-                        <Nav.Link
-                          href="#machine-learning"
-                          style={{ fontFamily: "Montserrat, sans-serif", color: "#013e38", marginLeft: "1.5rem" }}
-                          className="d-md-none"
-                        >
-                          Machine Learning
-                        </Nav.Link>
-                        <Nav.Link
-                          href="#others"
-                          style={{ fontFamily: "Montserrat, sans-serif", color: "#013e38", marginLeft: "1.5rem" }}
-                          className="d-md-none"
-                        >
-                          Others
-                        </Nav.Link>
-                      </>
-                    )}
-                    <Nav.Link as={Dropdown} style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}>
-                      <UserProfileDropdown />
-                    </Nav.Link>
-                  </>
-                ) : (
-                  <>
-                    <Nav.Link
-                      as={Link}
-                      to="/about_us"
-                      style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}
-                    >
-                      About Us
-                    </Nav.Link>
-                    <Nav.Link
-                      as={Link}
-                      to="/#why-skill-swap"
-                      style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}
-                    >
-                      Why SkillSwap
-                    </Nav.Link>
-                    <Nav.Link as={Link} to="/login" style={{ fontFamily: "Montserrat, sans-serif", color: "#2d2d2d" }}>
-                      Login/Register
-                    </Nav.Link>
-                  </>
-                )}
-              </Nav>
-            </Offcanvas.Body>
-          </Navbar.Offcanvas>
-        </Container>
-      </Navbar>
-    </>
+    <Navbar expand="md" style={{ background: "#0a0a0a", padding: "10px 0", marginTop: "20px", zIndex: 998 }}>
+      <Container fluid style={{
+        background: "#111111", border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "40px", padding: "12px 40px", width: "96%",
+        margin: "0 auto", display: "flex", alignItems: "center",
+        justifyContent: "space-between", backdropFilter: "blur(12px)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+      }}>
+
+        {/* Logo */}
+        <Navbar.Brand href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M6 8 L20 8 L20 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M6 8 L20 22" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M22 20 L8 20 L8 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M22 20 L8 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontFamily: "Georgia, serif", fontWeight: "700", fontSize: "1.15rem", color: "#ffffff", letterSpacing: "-0.01em" }}>
+            Skill<span style={{ color: "#aaaaaa", fontWeight: "400" }}>Swap</span>
+          </span>
+        </Navbar.Brand>
+
+        <Navbar.Toggle aria-controls="offcanvasNavbar-expand-md" style={{ borderColor: "rgba(255,255,255,0.15)", filter: "invert(1)" }} />
+
+        <Navbar.Offcanvas id="offcanvasNavbar-expand-md" placement="end">
+          <Offcanvas.Header closeButton style={{ background: "#111111", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            <Offcanvas.Title style={{ fontFamily: "Georgia, serif", color: "#ffffff", fontWeight: "700" }}>SKILL SWAP</Offcanvas.Title>
+          </Offcanvas.Header>
+
+          <Offcanvas.Body style={{ background: "#111111" }}>
+            <Nav className="justify-content-end flex-grow-1 pe-3" style={{ alignItems: "center" }}>
+
+              {navUser ? (
+                <>
+                  <NavItem to="/dashboard" label="Dashboard" />
+                  <NavItem to="/discover"  label="Discover"  />
+                  <NavItem to="/chats"     label="Chats"     />
+                  <NavItem to="/sessions"  label="Sessions"  />
+
+                  {/* Avatar with notification badge + dropdown */}
+                  <div style={{ marginLeft: "18px" }}>
+                    <UserProfileDropdown
+                      unreadCount={unreadCount}
+                      onCountChange={setUnreadCount}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Nav.Link as={Link} to="/" style={navLinkStyle("/")}
+                    onMouseEnter={e => e.currentTarget.style.color = "#fff"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#888"}>
+                    Home
+                  </Nav.Link>
+                  <Nav.Link as={Link} to="/about_us" style={navLinkStyle("/about_us")}
+                    onMouseEnter={e => e.currentTarget.style.color = "#fff"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#888"}>
+                    About Us
+                  </Nav.Link>
+                  <Nav.Link as={Link} to="/login" style={{
+                    ...navLinkStyle("/login"), color: "#0a0a0a", background: "#ffffff",
+                    borderRadius: "100px", padding: "6px 20px", fontWeight: "600",
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#ddd"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                    Login/Register
+                  </Nav.Link>
+                </>
+              )}
+            </Nav>
+          </Offcanvas.Body>
+        </Navbar.Offcanvas>
+      </Container>
+    </Navbar>
   );
+};
+
+/* ── Styles ────────────────────────────────────────────────────── */
+const s = {
+  avatarWrap: {
+    display: "flex", alignItems: "center", gap: 6,
+    cursor: "pointer", position: "relative",
+  },
+  avatar: {
+    width: 32, height: 32, borderRadius: "50%",
+    overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)",
+    position: "relative",
+  },
+  avatarBadge: {
+    position: "absolute", top: -5, right: 14,
+    background: "#ffffff", color: "#000000",
+    borderRadius: "50%", minWidth: 18, height: 18,
+    fontSize: "0.6rem", fontWeight: 700,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "0 4px", border: "2px solid #111",
+    fontFamily: "DM Mono, monospace",
+    zIndex: 10,
+  },
+  menu: {
+    background: "#0a0a0a",
+    border: "none",
+    borderRadius: 16,
+    padding: "8px",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)",
+    minWidth: 260,
+    right: 0, left: "auto",
+  },
+  menuItem: {
+    color: "#ffffff",
+    borderRadius: 10,
+    padding: "10px 14px",
+    fontFamily: "Syne, sans-serif",
+    fontSize: "0.88rem",
+    fontWeight: 500,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    transition: "background 0.15s",
+  },
+  menuDivider: {
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    margin: "4px 0",
+  },
+  notifSection: { padding: "4px 0", background: "#111111", borderRadius: 10, margin: "0" },
+  notifSectionHead: {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "10px 14px 6px",
+  },
+  notifSectionTitle: {
+    fontFamily: "Syne, sans-serif", fontSize: "0.75rem",
+    letterSpacing: "0.08em", textTransform: "uppercase",
+    fontWeight: 600, color: "#888",
+    display: "flex", alignItems: "center", gap: 6,
+  },
+  notifCount: {
+    background: "#111111", color: "#ffffff", borderRadius: 10,
+    padding: "1px 6px", fontSize: "0.62rem", fontWeight: 700,
+    fontFamily: "DM Mono, monospace",
+  },
+  markAllBtn: {
+    background: "transparent", border: "none", color: "#999",
+    fontSize: "0.65rem", cursor: "pointer",
+    display: "flex", alignItems: "center", gap: 4,
+    fontFamily: "DM Mono, monospace",
+  },
+  notifScrollList: {
+    maxHeight: 240, overflowY: "auto",
+    scrollbarWidth: "thin", scrollbarColor: "#222 transparent",
+  },
+  notifRow: (read) => ({
+    display: "flex", alignItems: "flex-start", gap: 10,
+    padding: "9px 14px",
+    background: read ? "transparent" : "rgba(0,0,0,0.04)",
+    cursor: "pointer",
+    transition: "background 0.15s",
+    borderRadius: 8,
+  }),
+  notifRowTitle: {
+    fontFamily: "Syne, sans-serif", fontSize: "0.78rem",
+    fontWeight: 600, color: "#ffffff", marginBottom: 2,
+  },
+  notifRowMsg: {
+    fontFamily: "Syne, sans-serif", fontSize: "0.72rem",
+    color: "#aaaaaa", lineHeight: 1.4,
+  },
+  smallDot: {
+    width: 7, height: 7, borderRadius: "50%",
+    background: "#ffffff", flexShrink: 0, marginTop: 4,
+  },
+  notifEmpty: {
+    textAlign: "center", padding: "14px 16px",
+    fontFamily: "Syne, sans-serif", fontSize: "0.75rem", color: "#bbb",
+  },
 };
 
 export default Header;

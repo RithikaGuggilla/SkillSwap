@@ -20,6 +20,11 @@ const reportSchema = new Schema(
       type: String,
       required: true,
     },
+    status: { 
+  type: String, 
+  enum: ["Pending", "Resolved", "Dismissed"], 
+  default: "Pending" 
+},
   },
   { timestamps: true }
 );

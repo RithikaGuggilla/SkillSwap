@@ -10,6 +10,11 @@ const unRegisteredUserSchema = new Schema(
       type: String,
       required: true,
     },
+    password: {
+  type: String,
+  default: null,   // null for Google sign-ups, hashed string for email sign-ups
+},
+ 
     picture: {
       type: String,
       default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToK4qEfbnd-RN82wdL2awn_PMviy_pelocqQ",
