@@ -180,7 +180,9 @@ const Chats = () => {
     setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
     try {
       setChatMessageLoading(true);
-      const { data } = await axios.get(`${import.meta.env.VITE_SERVER_URL}/message/getMessages/${chatId}`);
+      const { data } = await axios.get(`${import.meta.env.VITE_SERVER_URL}/chat/getChats`, {
+  withCredentials: true
+});
       setChatMessages(data.data);
       setMessage("");
       const chat = chats.find((c) => c.id === chatId);

@@ -27,13 +27,19 @@ export const getDashboardStats = async (req, res) => {
       status: "Connected"
     });
 
-    const meetingsScheduled = 0;
+    const meetingsScheduled = await Meeting.countDocuments({
+  $or: [{ host: userId }, { participant: userId }],
+  status: { $in: ["Scheduled", "Completed"] }
+});
+
 
     res.json({
-      requestsSent,
-      pendingRequests,
-      connections,
-      meetingsScheduled
+  stats: {
+    requestsSent,
+    pendingRequests,
+    connections,
+    meetingsScheduled,
+    meetingsDone },
     });
 
   } catch (error) {
@@ -181,16 +187,14 @@ const connections = uniqueUsers.size;
 
 
     const upcomingSessions = await Meeting.find({
-  $or: [
-    { host: userId },
-    { participant: userId }
-  ],
+  $or: [{ host: userId }, { participant: userId }],
   status: "Scheduled",
-  date: { $gte: new Date().toISOString().split("T")[0] } // only future sessions
+  date: { $gte: new Date().toISOString().split("T")[0] }
 })
 .populate("host participant", "name username picture")
 .sort({ date: 1, time: 1 })
 .limit(5);
+
 
 console.log("Upcoming Sessions:", upcomingSessions);
 
