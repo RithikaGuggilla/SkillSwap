@@ -133,8 +133,8 @@ export const emailSignup = asyncHandler(async (req, res) => {
   res.clearCookie("accessToken");
   res.cookie("accessTokenRegistration", jwtToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+    secure: true,
+sameSite: "none",
     expires: expiryDate,
   });
  
@@ -175,8 +175,8 @@ export const emailLogin = asyncHandler(async (req, res) => {
  
   res.cookie("accessToken", jwtToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+      secure: true,        // ✅ change
+  sameSite: "none", 
     expires: expiryDate,
   });
  
