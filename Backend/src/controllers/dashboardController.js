@@ -319,6 +319,10 @@ const meetingsScheduled = validSessions.length;
       level: "Beginner"
     }));
 
+    const meetingsDone = await Meeting.countDocuments({
+  $or: [{ host: userId }, { participant: userId }],
+  status: "Completed"
+});
 
     res.json({
       stats: {
@@ -326,7 +330,7 @@ const meetingsScheduled = validSessions.length;
         pendingRequests,
         connections,
         meetingsScheduled,
-        meetingsDone: 0
+        meetingsDone,
       },
       pendingRequests: pendingList,
       skillMatches: matches,
