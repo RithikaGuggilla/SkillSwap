@@ -203,8 +203,8 @@ export default function CreditBadge({ username, isOwnProfile = false }) {
           display: "grid", gridTemplateColumns: "1fr 1fr",
         }}>
           {[
-            { icon: "🎓", label: "Sessions Taught",    value: data.totalSessionsTaught },
-            { icon: "📖", label: "Sessions Attended",   value: data.totalSessionsCompleted },
+            { icon: "🎓", label: "Sessions Hosted",    value: data.totalSessionsTaught },
+            { icon: "📖", label: "Sessions Completed",   value: data.totalSessionsCompleted },
             { icon: "⭐", label: "Avg Rating",          value: data.averageRating > 0 ? data.averageRating.toFixed(1) : "—" },
             { icon: "📝", label: "Ratings Received",    value: data.totalRatingsReceived },
           ].map((s, i) => (
