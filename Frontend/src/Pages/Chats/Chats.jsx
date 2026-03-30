@@ -181,23 +181,24 @@ const Chats = () => {
   };
 
   const handleChatClick = async (chatId) => {
-    setActiveGroup(null);
-    setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
-    try {
-      setChatMessageLoading(true);
-      const { data } = await axios.get(`${import.meta.env.VITE_SERVER_URL}/chat/getChats`, {
-  withCredentials: true
-});
-      setChatMessages(data.data);
-      setMessage("");
-      const chat = chats.find((c) => c.id === chatId);
-      setSelectedChat(chat);
-      socket.emit("join chat", chatId);
-    } catch (err) {
-      if (err?.response?.data?.message) toast.error(err.response.data.message);
-      else toast.error("Something went wrong");
-    } finally { setChatMessageLoading(false); }
-  };
+  setActiveGroup(null);
+  setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
+  try {
+    setChatMessageLoading(true);
+    const { data } = await axios.get(
+      `${import.meta.env.VITE_SERVER_URL}/message/getMessages/${chatId}`,
+      { withCredentials: true }
+    );
+    setChatMessages(data.data);
+    setMessage("");
+    const chat = chats.find((c) => c.id === chatId);
+    setSelectedChat(chat);
+    socket.emit("join chat", chatId);
+  } catch (err) {
+    if (err?.response?.data?.message) toast.error(err.response.data.message);
+    else toast.error("Something went wrong");
+  } finally { setChatMessageLoading(false); }
+};
 
   const handleGroupClick = (group) => {
     setSelectedChat(null);
@@ -209,9 +210,11 @@ const Chats = () => {
     if (message.trim() === "") { toast.error("Message is empty"); return; }
     try {
       socket.emit("stop typing", selectedChat._id);
-      const { data } = await axios.post("/message/sendMessage", {
-        chatId: selectedChat.id, content: message,
-      });
+      const { data } = await axios.post(
+  `${import.meta.env.VITE_SERVER_URL}/message/sendMessage`,
+  { chatId: selectedChat.id, content: message },
+  { withCredentials: true }
+);
       socket.emit("new message", data.data);
       setChatMessages((prev) => [...prev, data.data]);
       // Update last message for this chat
