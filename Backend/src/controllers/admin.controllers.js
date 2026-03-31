@@ -26,8 +26,8 @@ export const adminLogin = asyncHandler(async (req, res) => {
   );
 
   res.cookie("adminToken", token, {
-    httpOnly: true, secure: false,
-    sameSite: "lax",
+    httpOnly: true, secure: true,
+    sameSite: "none",
     expires: new Date(Date.now() + 8 * 60 * 60 * 1000),
   });
 
