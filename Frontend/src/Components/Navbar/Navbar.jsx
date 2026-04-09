@@ -181,7 +181,7 @@
 //     <div ref={ref} style={{ ...style, ...s.menu, right: 0, left: "auto" }} className={className} aria-labelledby={labeledBy}>
 //       <ul className="list-unstyled" style={{ margin: 0 }}>
       
-//         <button onClick={toggleTheme}>Toggle</button>
+        
 
 //         <Dropdown.Item onClick={() => navigate(`/profile/${user?.username}`)} state={{ from: "/dashboard" }} style={s.menuItem}>
 //           <User size={15} color="#555" />  Profile
@@ -510,64 +510,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useEffect, useState, useRef } from "react";
 import Container from "react-bootstrap/Container";
 import Nav from "react-bootstrap/Nav";
@@ -577,9 +519,9 @@ import Offcanvas from "react-bootstrap/Offcanvas";
 import { useUser } from "../../util/UserContext";
 import { Dropdown } from "react-bootstrap";
 import axios from "axios";
-import { ChevronDown, Bell, User, Settings, LogOut, CheckCheck, Sun, Moon } from "lucide-react";
+import { ChevronDown, Bell, User, Settings, LogOut, CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { useTheme } from '../../Pages/context/ThemeContext';
+
 
 /* ── Notification dropdown ─────────────────────────────────────── */
 const NotificationDropdown = ({ unreadCount, onCountChange }) => {
@@ -675,7 +617,6 @@ const NotificationDropdown = ({ unreadCount, onCountChange }) => {
 const UserProfileDropdown = ({ unreadCount, onCountChange }) => {
   const { user, setUser } = useUser();
   const navigate          = useNavigate();
-  const { theme, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen]           = useState(false);
   const [notifications, setNotifs]          = useState([]);
   const [notifsLoading, setNotifsLoading]   = useState(false);
@@ -690,7 +631,7 @@ const UserProfileDropdown = ({ unreadCount, onCountChange }) => {
   const handleLogout = async () => {
     localStorage.removeItem("userInfo");
     setUser(null);
-    try { await axios.get("/auth/logout"); window.location.href = "https://skill-swap-five-chi.vercel.app/login"; }
+    try { await axios.get("/auth/logout");window.location.href = "https://skill-swap-five-chi.vercel.app/login";}
     catch {}
   };
 
@@ -749,32 +690,14 @@ const UserProfileDropdown = ({ unreadCount, onCountChange }) => {
   const CustomMenu = React.forwardRef(({ style, className, "aria-labelledby": labeledBy }, ref) => (
     <div ref={ref} style={{ ...style, ...s.menu, right: 0, left: "auto" }} className={className} aria-labelledby={labeledBy}>
       <ul className="list-unstyled" style={{ margin: 0 }}>
+      
+        <button onClick={toggleTheme}>Toggle</button>
 
-        {/* Theme Toggle */}
-        <li>
-          <div
-            onClick={toggleTheme}
-            style={{ ...s.menuItem, cursor: "pointer" }}
-          >
-            {theme === 'dark'
-              ? <><Sun size={15} color="#aaa" /> Light Mode</>
-              : <><Moon size={15} color="#555" /> Dark Mode</>
-            }
-          </div>
-        </li>
-
-        <div style={s.menuDivider} />
-
-        <Dropdown.Item
-          onClick={() => navigate(`/profile/${user?.username}`)}
-          state={{ from: "/dashboard" }}
-          style={s.menuItem}
-        >
-          <User size={15} color="#555" /> Profile
+        <Dropdown.Item onClick={() => navigate(`/profile/${user?.username}`)} state={{ from: "/dashboard" }} style={s.menuItem}>
+          <User size={15} color="#555" />  Profile
         </Dropdown.Item>
 
         <div style={s.menuDivider} />
-
         <div style={s.notifSection}>
           <div style={s.notifSectionHead}>
             <span style={s.notifSectionTitle}>
@@ -837,7 +760,6 @@ const Header = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const { user }                      = useUser();
   const location                      = useLocation();
-  const { theme, toggleTheme }        = useTheme();
 
   useEffect(() => {
     setNavUser(JSON.parse(localStorage.getItem("userInfo")));
@@ -845,14 +767,14 @@ const Header = () => {
 
   useEffect(() => {
     if (!navUser) return;
-    const fetchCount = async () => {
+    const fetch = async () => {
       try {
         const { data } = await axios.get("/notifications", { withCredentials: true });
         setUnreadCount(data.data.unreadCount || 0);
       } catch {}
     };
-    fetchCount();
-    const interval = setInterval(fetchCount, 30000);
+    fetch();
+    const interval = setInterval(fetch, 30000);
     return () => clearInterval(interval);
   }, [navUser]);
 
@@ -870,6 +792,7 @@ const Header = () => {
     letterSpacing: "0.01em",
   });
 
+  /* Renders a nav link with a tiny dot underline when active */
   const NavItem = ({ to, label }) => (
     <div style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", marginLeft: "18px" }}>
       <Nav.Link
@@ -890,6 +813,7 @@ const Header = () => {
       >
         {label}
       </Nav.Link>
+      {/* Active dot indicator */}
       <div style={{
         width: isActive(to) ? "18px" : "0px",
         height: "2px",
@@ -903,9 +827,9 @@ const Header = () => {
   );
 
   return (
-    <Navbar expand="md" style={{ background: "var(--bg)", padding: "10px 0", marginTop: "20px", zIndex: 998 }}>
+    <Navbar expand="md" style={{ background: "#0a0a0a", padding: "10px 0", marginTop: "20px", zIndex: 998 }}>
       <Container fluid style={{
-        background: "var(--card)", border: "1px solid var(--border)",
+        background: "#111111", border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: "40px", padding: "12px 40px", width: "96%",
         margin: "0 auto", display: "flex", alignItems: "center",
         justifyContent: "space-between", backdropFilter: "blur(12px)",
@@ -915,24 +839,24 @@ const Header = () => {
         {/* Logo */}
         <Navbar.Brand href="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <path d="M6 8 L20 8 L20 22" stroke="var(--text)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M6 8 L20 22" stroke="var(--text)" strokeWidth="2.2" strokeLinecap="round"/>
-            <path d="M22 20 L8 20 L8 6" stroke="var(--light-grey)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M22 20 L8 6" stroke="var(--light-grey)" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M6 8 L20 8 L20 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M6 8 L20 22" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+            <path d="M22 20 L8 20 L8 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M22 20 L8 6" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round"/>
           </svg>
-          <span style={{ fontFamily: "Georgia, serif", fontWeight: "700", fontSize: "1.15rem", color: "var(--text)", letterSpacing: "-0.01em" }}>
-            Skill<span style={{ color: "var(--light-grey)", fontWeight: "400" }}>Swap</span>
+          <span style={{ fontFamily: "Georgia, serif", fontWeight: "700", fontSize: "1.15rem", color: "#ffffff", letterSpacing: "-0.01em" }}>
+            Skill<span style={{ color: "#aaaaaa", fontWeight: "400" }}>Swap</span>
           </span>
         </Navbar.Brand>
 
-        <Navbar.Toggle aria-controls="offcanvasNavbar-expand-md" style={{ borderColor: "var(--border)", filter: theme === 'dark' ? "invert(1)" : "none" }} />
+        <Navbar.Toggle aria-controls="offcanvasNavbar-expand-md" style={{ borderColor: "rgba(255,255,255,0.15)", filter: "invert(1)" }} />
 
         <Navbar.Offcanvas id="offcanvasNavbar-expand-md" placement="end">
-          <Offcanvas.Header closeButton style={{ background: "var(--card)", borderBottom: "1px solid var(--border)" }}>
-            <Offcanvas.Title style={{ fontFamily: "Georgia, serif", color: "var(--text)", fontWeight: "700" }}>SKILL SWAP</Offcanvas.Title>
+          <Offcanvas.Header closeButton style={{ background: "#111111", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            <Offcanvas.Title style={{ fontFamily: "Georgia, serif", color: "#ffffff", fontWeight: "700" }}>SKILL SWAP</Offcanvas.Title>
           </Offcanvas.Header>
 
-          <Offcanvas.Body style={{ background: "var(--card)" }}>
+          <Offcanvas.Body style={{ background: "#111111" }}>
             <Nav className="justify-content-end flex-grow-1 pe-3" style={{ alignItems: "center" }}>
 
               {navUser ? (
@@ -942,6 +866,7 @@ const Header = () => {
                   <NavItem to="/chats"     label="Chats"     />
                   <NavItem to="/sessions"  label="Sessions"  />
 
+                  {/* Avatar with notification badge + dropdown */}
                   <div style={{ marginLeft: "18px" }}>
                     <UserProfileDropdown
                       unreadCount={unreadCount}
@@ -961,30 +886,12 @@ const Header = () => {
                     onMouseLeave={e => e.currentTarget.style.color = "#888"}>
                     About Us
                   </Nav.Link>
-
-                  {/* Theme toggle for logged-out users */}
-                  <button
-                    onClick={toggleTheme}
-                    style={{
-                      background: "transparent",
-                      border: "1px solid var(--border)",
-                      borderRadius: "50%",
-                      width: 34, height: 34,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer",
-                      marginLeft: "14px",
-                      color: "var(--text)",
-                    }}
-                  >
-                    {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-                  </button>
-
                   <Nav.Link as={Link} to="/login" style={{
-                    ...navLinkStyle("/login"), color: "var(--bg)", background: "var(--text)",
+                    ...navLinkStyle("/login"), color: "#0a0a0a", background: "#ffffff",
                     borderRadius: "100px", padding: "6px 20px", fontWeight: "600",
                   }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = "0.85"}
-                    onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+                    onMouseEnter={e => e.currentTarget.style.background = "#ddd"}
+                    onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
                     Login/Register
                   </Nav.Link>
                 </>
@@ -1005,22 +912,22 @@ const s = {
   },
   avatar: {
     width: 32, height: 32, borderRadius: "50%",
-    overflow: "hidden", border: "2px solid var(--border)",
+    overflow: "hidden", border: "2px solid rgba(255,255,255,0.2)",
     position: "relative",
   },
   avatarBadge: {
     position: "absolute", top: -5, right: 14,
-    background: "var(--text)", color: "var(--bg)",
+    background: "#ffffff", color: "#000000",
     borderRadius: "50%", minWidth: 18, height: 18,
     fontSize: "0.6rem", fontWeight: 700,
     display: "flex", alignItems: "center", justifyContent: "center",
-    padding: "0 4px", border: "2px solid var(--card)",
+    padding: "0 4px", border: "2px solid #111",
     fontFamily: "DM Mono, monospace",
     zIndex: 10,
   },
   menu: {
-    background: "var(--card)",
-    border: "1px solid var(--border)",
+    background: "#0a0a0a",
+    border: "none",
     borderRadius: 16,
     padding: "8px",
     boxShadow: "0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)",
@@ -1028,7 +935,7 @@ const s = {
     right: 0, left: "auto",
   },
   menuItem: {
-    color: "var(--text)",
+    color: "#ffffff",
     borderRadius: 10,
     padding: "10px 14px",
     fontFamily: "Syne, sans-serif",
@@ -1040,10 +947,10 @@ const s = {
     transition: "background 0.15s",
   },
   menuDivider: {
-    borderTop: "1px solid var(--border)",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
     margin: "4px 0",
   },
-  notifSection: { padding: "4px 0", background: "var(--bg)", borderRadius: 10, margin: "0" },
+  notifSection: { padding: "4px 0", background: "#111111", borderRadius: 10, margin: "0" },
   notifSectionHead: {
     display: "flex", alignItems: "center", justifyContent: "space-between",
     padding: "10px 14px 6px",
@@ -1051,48 +958,101 @@ const s = {
   notifSectionTitle: {
     fontFamily: "Syne, sans-serif", fontSize: "0.75rem",
     letterSpacing: "0.08em", textTransform: "uppercase",
-    fontWeight: 600, color: "var(--light-grey)",
+    fontWeight: 600, color: "#888",
     display: "flex", alignItems: "center", gap: 6,
   },
   notifCount: {
-    background: "var(--text)", color: "var(--bg)", borderRadius: 10,
+    background: "#111111", color: "#ffffff", borderRadius: 10,
     padding: "1px 6px", fontSize: "0.62rem", fontWeight: 700,
     fontFamily: "DM Mono, monospace",
   },
   markAllBtn: {
-    background: "transparent", border: "none", color: "var(--light-grey)",
+    background: "transparent", border: "none", color: "#999",
     fontSize: "0.65rem", cursor: "pointer",
     display: "flex", alignItems: "center", gap: 4,
     fontFamily: "DM Mono, monospace",
   },
   notifScrollList: {
     maxHeight: 240, overflowY: "auto",
-    scrollbarWidth: "thin", scrollbarColor: "var(--border) transparent",
+    scrollbarWidth: "thin", scrollbarColor: "#222 transparent",
   },
   notifRow: (read) => ({
     display: "flex", alignItems: "flex-start", gap: 10,
     padding: "9px 14px",
-    background: read ? "transparent" : "rgba(108,93,211,0.08)",
+    background: read ? "transparent" : "rgba(0,0,0,0.04)",
     cursor: "pointer",
     transition: "background 0.15s",
     borderRadius: 8,
   }),
   notifRowTitle: {
     fontFamily: "Syne, sans-serif", fontSize: "0.78rem",
-    fontWeight: 600, color: "var(--text)", marginBottom: 2,
+    fontWeight: 600, color: "#ffffff", marginBottom: 2,
   },
   notifRowMsg: {
     fontFamily: "Syne, sans-serif", fontSize: "0.72rem",
-    color: "var(--light-grey)", lineHeight: 1.4,
+    color: "#aaaaaa", lineHeight: 1.4,
   },
   smallDot: {
     width: 7, height: 7, borderRadius: "50%",
-    background: "var(--primary)", flexShrink: 0, marginTop: 4,
+    background: "#ffffff", flexShrink: 0, marginTop: 4,
   },
   notifEmpty: {
     textAlign: "center", padding: "14px 16px",
-    fontFamily: "Syne, sans-serif", fontSize: "0.75rem", color: "var(--light-grey)",
+    fontFamily: "Syne, sans-serif", fontSize: "0.75rem", color: "#bbb",
   },
 };
 
+
 export default Header;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

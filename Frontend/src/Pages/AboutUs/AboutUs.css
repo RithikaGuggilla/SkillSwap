@@ -1,3 +1,4 @@
+
 .content1-container {
   display: flex;
   flex-direction: row;
@@ -9,7 +10,7 @@
   overflow: hidden;
 }
 
-/* subtle dot grid texture */
+
 .content1-container::before {
   content: "";
   position: absolute;
@@ -19,7 +20,7 @@
   pointer-events: none;
 }
 
-/* ── eyebrow label ── */
+
 .about-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -37,7 +38,7 @@
   margin-bottom: 16px;
 }
 
-/* ── divider ── */
+
 .about-divider {
   width: 52px;
   height: 3px;
@@ -46,7 +47,6 @@
   margin-bottom: 28px;
 }
 
-/* ── stat pills row ── */
 .about-stats {
   display: flex;
   gap: 16px;
@@ -81,7 +81,7 @@
   font-weight: 500;
 }
 
-/* ── right side visual ── */
+
 .about-visual {
   max-width: 50vw;
   width: 100%;
@@ -103,7 +103,7 @@
   overflow: hidden;
 }
 
-/* very subtle glow blobs */
+
 .about-blob {
   position: absolute;
   border-radius: 50%;
@@ -127,7 +127,7 @@
   left: -40px;
 }
 
-/* ── skill icon grid ── */
+
 .about-icon-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -210,3 +210,4 @@
     margin-right: auto;
   }
 }
+
